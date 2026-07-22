@@ -1662,7 +1662,7 @@
     const newsletterPreset = window["grapesjs-preset-newsletter"];
     designerState.editor = window.grapesjs.init({
       container: "#emailDesignerEditor",
-      height: "720px",
+      height: "100%",
       storageManager: false,
       fromElement: false,
       plugins: newsletterPreset ? [newsletterPreset] : [],
@@ -1690,7 +1690,19 @@
     designerState.editor.setComponents(designerStarterHtml());
     designerState.initialized = true;
     $("designerStatus").textContent = "設計器已就緒";
+    refreshEmailDesignerLayout();
     return designerState.editor;
+  }
+
+  function refreshEmailDesignerLayout() {
+    if (!designerState.editor) return;
+    requestAnimationFrame(() => {
+      try {
+        designerState.editor.refresh();
+      } catch {
+        // GrapesJS refresh is best-effort; layout still works if this is unavailable.
+      }
+    });
   }
 
   function resetDesignerForm() {
@@ -1701,6 +1713,7 @@
     $("designerSubjectField").value = "";
     if (designerState.editor) designerState.editor.setComponents(designerStarterHtml());
     $("designerStatus").textContent = "新圖文模板";
+    refreshEmailDesignerLayout();
   }
 
   function renderDesignerTemplateOptions(selectedId = "") {
@@ -1739,12 +1752,14 @@
       designerState.editor.setComponents(template.htmlTemplate || `<p>${escapeHtml(template.textTemplate || "")}</p>`);
     }
     $("designerStatus").textContent = `已打開：${template.name || template.id}`;
+    refreshEmailDesignerLayout();
   }
 
   async function loadDesignerPage() {
     await ensureTemplatesLoaded();
     renderDesignerTemplateOptions();
     await initializeEmailDesigner();
+    refreshEmailDesignerLayout();
   }
 
   function insertDesignerToken(token) {
@@ -3663,7 +3678,10 @@
         document.querySelectorAll(".tab-pane").forEach((pane) => pane.classList.remove("active"));
         tab.classList.add("active");
         $(`${tab.dataset.tab}Pane`).classList.add("active");
-        runAsync(() => loadTabData(tab.dataset.tab));
+        runAsync(async () => {
+          await loadTabData(tab.dataset.tab);
+          if (tab.dataset.tab === "designer") refreshEmailDesignerLayout();
+        });
       });
     });
 
@@ -3897,6 +3915,9 @@
       if (item) openDrawer(item.dataset.open);
     });
 
+    window.addEventListener("resize", () => {
+      if ($("designerPane")?.classList.contains("active")) refreshEmailDesignerLayout();
+    });
   }
 
   loadState();

@@ -1353,28 +1353,62 @@ textarea:focus {
 
 .designer-workspace {
   display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 12px;
+  grid-template-columns: 1fr;
 }
 
 .designer-sidebar {
   align-self: start;
 }
 
+.designer-sidebar .mail-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.15fr) minmax(160px, 0.7fr) minmax(260px, 1.2fr);
+}
+
+.designer-sidebar .mail-form > label {
+  min-width: 0;
+}
+
+.designer-sidebar .designer-compliance {
+  grid-column: span 2;
+}
+
+.designer-sidebar .designer-token-grid {
+  grid-column: span 1;
+}
+
+.designer-sidebar .drawer-actions {
+  align-self: stretch;
+  flex-wrap: wrap;
+  grid-column: span 1;
+  justify-content: flex-end;
+}
+
 .designer-editor-card {
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .designer-compliance {
   align-items: flex-start;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  min-height: 70px;
+}
+
+.designer-compliance strong {
+  flex-basis: 100%;
 }
 
 .designer-token-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .designer-token-grid button {
@@ -1406,8 +1440,36 @@ textarea:focus {
 .email-designer-editor {
   border: 1px solid var(--line);
   border-radius: 8px;
-  min-height: 720px;
+  height: min(820px, calc(100vh - 265px));
+  min-height: 640px;
   overflow: hidden;
+  width: 100%;
+}
+
+.email-designer-editor .gjs-editor,
+.email-designer-editor .gjs-editor-cont {
+  min-width: 980px;
+}
+
+.email-designer-editor .gjs-pn-panels {
+  min-width: 980px;
+}
+
+.email-designer-editor .gjs-cv-canvas {
+  width: calc(100% - 260px);
+}
+
+.email-designer-editor .gjs-pn-views-container,
+.email-designer-editor .gjs-pn-views {
+  width: 260px;
+}
+
+.email-designer-editor .gjs-pn-options {
+  right: 260px;
+}
+
+.designer-editor-card .card-title {
+  align-items: center;
 }
 
 .email-designer-editor .gjs-one-bg {
@@ -1466,6 +1528,20 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .designer-sidebar .mail-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .designer-sidebar .designer-compliance,
+  .designer-sidebar .designer-token-grid,
+  .designer-sidebar .drawer-actions {
+    grid-column: span 2;
+  }
+
+  .email-designer-editor {
+    height: 760px;
+  }
+
   .control-panel {
     position: static;
   }
@@ -1508,6 +1584,25 @@ textarea:focus {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .designer-sidebar .mail-form {
+    grid-template-columns: 1fr;
+  }
+
+  .designer-sidebar .designer-compliance,
+  .designer-sidebar .designer-token-grid,
+  .designer-sidebar .drawer-actions {
+    grid-column: auto;
+  }
+
+  .designer-token-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .email-designer-editor {
+    height: 720px;
+    min-height: 620px;
   }
 
   .campaign-steps,
