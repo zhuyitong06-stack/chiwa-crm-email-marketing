@@ -1,0 +1,18 @@
+[Unit]
+Description=CRM Digital Marketing System
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tdc-crm-web/backend
+ExecStart=/usr/bin/node --env-file-if-exists=.env server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3100
+Environment=HOST=127.0.0.1
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

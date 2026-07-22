@@ -1,0 +1,28 @@
+.DS_Store
+
+# Secrets
+.env
+.env.*
+!backend/.env.example
+!backend/.env.production.example
+backend/.env
+
+# Runtime data
+backend/data/
+backend/*.sqlite
+backend/*.sqlite-*
+
+# Dependencies and logs
+node_modules/
+backend/node_modules/
+npm-debug.log*
+pnpm-debug.log*
+
+# Local-only helpers
+local-dev/
+
+# Deployment archives
+*.tgz
+*.tar.gz
+*.zip
+

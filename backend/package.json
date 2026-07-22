@@ -1,0 +1,25 @@
+{
+  "name": "tdc-crm-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "start:prod": "NODE_ENV=production node --env-file-if-exists=.env server.js",
+    "check": "node --check server.js && node --check db.js && node --check resend.js && node --check auth.js && node --check utils.js && node --check routes/contacts.js && node --check routes/emails.js && node --check routes/campaigns.js && node --check routes/inbox.js && node --check routes/templates.js && node --check routes/webhooks.js && node --check routes/unsubscribe.js && node --check scripts/check-production.js",
+    "check:production": "NODE_ENV=production node --env-file-if-exists=.env scripts/check-production.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.22.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^7.2.0",
+    "pg": "^8.22.0",
+    "resend": "^6.17.2",
+    "svix": "^1.96.1"
+  }
+}
