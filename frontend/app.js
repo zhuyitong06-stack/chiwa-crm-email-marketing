@@ -101,6 +101,7 @@
   const designerState = {
     editor: null,
     initialized: false,
+    assets: [],
   };
 
   const $ = (id) => document.getElementById(id);
@@ -842,6 +843,13 @@
       throw new Error(payload.error || `Upload failed: ${response.status}`);
     }
     return payload.assets || payload.data || [];
+  }
+
+  function formatAssetSize(bytes = 0) {
+    const size = Number(bytes) || 0;
+    if (!size) return "";
+    if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
   }
 
   function leadPayloadFromLead(lead) {
@@ -1653,6 +1661,86 @@
     });
   }
 
+  function renderDesignerAssetLibrary() {
+    const container = $("designerAssetLibrary");
+    if (!container) return;
+    $("designerAssetStatus").textContent = designerState.assets.length ? `${designerState.assets.length} 個素材` : "暫無素材";
+    container.innerHTML =
+      designerState.assets
+        .map(
+          (asset) => `
+            <article class="designer-asset-item">
+              <img src="${escapeHtml(asset.src)}" alt="${escapeHtml(asset.name || "Email asset")}" loading="lazy" />
+              <strong title="${escapeHtml(asset.name || asset.id || "")}">${escapeHtml(asset.name || asset.id || "素材")}</strong>
+              <span>${escapeHtml(formatAssetSize(asset.size))}${asset.updatedAt ? ` · ${escapeHtml(String(asset.updatedAt).slice(0, 10))}` : ""}</span>
+              <div class="designer-asset-actions">
+                <button type="button" class="icon-button secondary" data-insert-designer-asset="${escapeHtml(asset.id || asset.src)}">
+                  <i data-lucide="plus"></i>
+                  插入
+                </button>
+                ${
+                  asset.id
+                    ? `<button type="button" class="icon-only danger" data-delete-designer-asset="${escapeHtml(asset.id)}" title="刪除素材">
+                        <i data-lucide="trash-2"></i>
+                      </button>`
+                    : ""
+                }
+              </div>
+            </article>
+          `,
+        )
+        .join("") || `<div class="mail-empty">素材庫還沒有圖片。請上傳 Banner、產品圖、案例圖或活動圖。</div>`;
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function addAssetsToGrapesJs(assets = []) {
+    if (!designerState.editor || !assets.length) return;
+    const existing = new Set(designerState.editor.AssetManager.getAll().map((asset) => asset.get("src")));
+    const next = assets
+      .filter((asset) => asset?.src && !existing.has(asset.src))
+      .map((asset) => ({ src: asset.src, name: asset.name || asset.id || asset.src, type: "image" }));
+    if (next.length) designerState.editor.AssetManager.add(next);
+  }
+
+  async function loadDesignerAssets({ silent = false } = {}) {
+    if (!silent) $("designerAssetStatus").textContent = "正在載入素材...";
+    const payload = await apiRequest("/api/admin/email-assets");
+    designerState.assets = payload.assets || payload.data || [];
+    addAssetsToGrapesJs(designerState.assets);
+    renderDesignerAssetLibrary();
+    return designerState.assets;
+  }
+
+  async function uploadDesignerAssetFiles(files = []) {
+    const uploadFiles = [...files].filter(Boolean);
+    if (!uploadFiles.length) return;
+    $("designerAssetStatus").textContent = "正在上傳素材...";
+    const assets = await uploadEmailDesignerAssets(uploadFiles);
+    designerState.assets = [...assets, ...designerState.assets.filter((asset) => !assets.some((next) => next.id === asset.id))];
+    addAssetsToGrapesJs(assets);
+    renderDesignerAssetLibrary();
+    setToast(`已上傳 ${assets.length} 個素材`);
+  }
+
+  function insertDesignerAsset(assetId) {
+    const asset = designerState.assets.find((item) => item.id === assetId || item.src === assetId);
+    if (!asset?.src || !designerState.editor) return;
+    designerState.editor.addComponents(`<img src="${escapeHtml(asset.src)}" alt="${escapeHtml(asset.name || "Email image")}" style="max-width:100%;height:auto;display:block;">`);
+    designerState.editor.select(null);
+    $("designerStatus").textContent = `已插入素材：${asset.name || asset.id}`;
+    refreshEmailDesignerLayout();
+  }
+
+  async function deleteDesignerAsset(assetId) {
+    const asset = designerState.assets.find((item) => item.id === assetId);
+    if (!asset?.id) return;
+    if (!confirm(`確認刪除素材「${asset.name || asset.id}」？已發出的歷史郵件如引用此圖片，可能無法再顯示。`)) return;
+    await apiRequest(`/api/admin/email-assets/${encodeURIComponent(asset.id)}`, { method: "DELETE" });
+    designerState.assets = designerState.assets.filter((item) => item.id !== asset.id);
+    renderDesignerAssetLibrary();
+    setToast("素材已刪除");
+  }
+
   async function initializeEmailDesigner() {
     if (designerState.initialized) return designerState.editor;
     if (!window.grapesjs) {
@@ -1676,9 +1764,7 @@
         uploadFile: async (event) => {
           try {
             const files = event.dataTransfer ? event.dataTransfer.files : event.target.files;
-            const assets = await uploadEmailDesignerAssets(files || []);
-            designerState.editor.AssetManager.add(assets);
-            $("designerStatus").textContent = `已上傳 ${assets.length} 張圖片`;
+            await uploadDesignerAssetFiles(files || []);
           } catch (error) {
             $("designerStatus").textContent = error.message;
             setToast(error.message);
@@ -1690,6 +1776,9 @@
     designerState.editor.setComponents(designerStarterHtml());
     designerState.initialized = true;
     $("designerStatus").textContent = "設計器已就緒";
+    loadDesignerAssets({ silent: true }).catch((error) => {
+      $("designerAssetStatus").textContent = error.message;
+    });
     refreshEmailDesignerLayout();
     return designerState.editor;
   }
@@ -1759,6 +1848,7 @@
     await ensureTemplatesLoaded();
     renderDesignerTemplateOptions();
     await initializeEmailDesigner();
+    await loadDesignerAssets({ silent: true });
     refreshEmailDesignerLayout();
   }
 
@@ -3854,6 +3944,23 @@
     $("campaignForm").addEventListener("submit", (event) => runAsync(() => saveCampaign(event)));
     $("designerForm").addEventListener("submit", (event) => runAsync(() => saveDesignerTemplate(event)));
     $("designerTemplateSelect").addEventListener("change", (event) => runAsync(() => openDesignerTemplate(event.target.value)));
+    $("designerAssetUploadField").addEventListener("change", (event) => {
+      runAsync(async () => {
+        await initializeEmailDesigner();
+        await uploadDesignerAssetFiles(event.target.files || []);
+        event.target.value = "";
+      });
+    });
+    $("designerRefreshAssetsBtn").addEventListener("click", () => runAsync(loadDesignerAssets));
+    $("designerAssetLibrary").addEventListener("click", (event) => {
+      const insert = event.target.closest("[data-insert-designer-asset]");
+      if (insert) {
+        insertDesignerAsset(insert.dataset.insertDesignerAsset);
+        return;
+      }
+      const remove = event.target.closest("[data-delete-designer-asset]");
+      if (remove) runAsync(() => deleteDesignerAsset(remove.dataset.deleteDesignerAsset));
+    });
     $("designerNewBtn").addEventListener("click", () => runAsync(async () => {
       await initializeEmailDesigner();
       resetDesignerForm();

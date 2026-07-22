@@ -383,6 +383,26 @@
                 </form>
               </section>
 
+              <section class="work-card designer-assets-card">
+                <div class="card-title">
+                  <h2>郵件素材庫</h2>
+                  <span id="designerAssetStatus">等待載入素材</span>
+                </div>
+                <div class="designer-assets-toolbar">
+                  <label class="asset-upload-button">
+                    <input id="designerAssetUploadField" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" />
+                    <i data-lucide="image-up"></i>
+                    上傳素材
+                  </label>
+                  <button type="button" class="icon-button secondary" id="designerRefreshAssetsBtn">
+                    <i data-lucide="refresh-cw"></i>
+                    刷新素材庫
+                  </button>
+                  <span>點擊“插入”可直接放入目前郵件畫布。</span>
+                </div>
+                <div id="designerAssetLibrary" class="designer-asset-library"></div>
+              </section>
+
               <section class="work-card designer-editor-card">
                 <div class="card-title">
                   <h2>拖拽式圖文編輯器</h2>
