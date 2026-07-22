@@ -98,6 +98,11 @@
     campaignStep: 1,
   };
 
+  const designerState = {
+    editor: null,
+    initialized: false,
+  };
+
   const $ = (id) => document.getElementById(id);
   let adminTokenSyncTimer = 0;
 
@@ -818,6 +823,27 @@
     return payload;
   }
 
+  async function uploadEmailDesignerAssets(files = []) {
+    const token = adminToken();
+    if (!token) throw new Error("請先輸入 Admin API Token");
+    assertHeaderSafeToken(token);
+    const formData = new FormData();
+    [...files].forEach((file) => formData.append("files", file));
+    const response = await fetch(`${API_BASE}/api/admin/uploads/email-assets`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.error || `Upload failed: ${response.status}`);
+    }
+    return payload.assets || payload.data || [];
+  }
+
   function leadPayloadFromLead(lead) {
     return {
       id: lead.id,
@@ -917,6 +943,20 @@
 
   function currentComposerTextContent() {
     return [currentComposerBody(), $("emailSignatureField").value.trim()].filter(Boolean).join("\n\n");
+  }
+
+  function textToHtmlParagraphs(value = "") {
+    return String(value || "")
+      .split(/\n{2,}/)
+      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+      .join("");
+  }
+
+  function currentComposerHtmlContent() {
+    const templateHtml = $("emailBodyField").dataset.htmlContent || "";
+    const signature = $("emailSignatureField").value.trim();
+    if (!templateHtml) return "";
+    return `${templateHtml}${signature ? `<br>${textToHtmlParagraphs(signature)}` : ""}`;
   }
 
   function renderCustomerSnapshot(lead = getLead($("leadIdField")?.value)) {
@@ -1160,7 +1200,7 @@
       const threadId = $("emailThreadIdField").value.trim();
       const payload = await apiRequest(`/api/admin/contacts/${encodeURIComponent(contact.id)}/emails/send`, {
         method: "POST",
-        body: JSON.stringify({ subject, textContent, purpose, ...(threadId ? { threadId } : {}) }),
+        body: JSON.stringify({ subject, textContent, htmlContent: currentComposerHtmlContent(), purpose, ...(threadId ? { threadId } : {}) }),
       });
 
       if (lead) {
@@ -1216,6 +1256,7 @@
         body: JSON.stringify({
           subject: `[TEST] ${subject}`,
           textContent,
+          htmlContent: currentComposerHtmlContent(),
           purpose,
           testRecipient,
           threadId: $("emailThreadIdField").value.trim() || undefined,
@@ -1492,6 +1533,273 @@
     refreshEmailHistory().catch((error) => setToast(error.message));
   }
 
+  function designerStarterHtml() {
+    return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+              <tr>
+                <td style="padding:16px 24px;background:#0f766e;color:#ffffff;font-size:14px;">
+                  <a href="{{web_archive_url}}" style="color:#d9fff7;text-decoration:underline;">查看網頁版</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:32px 28px 12px;">
+                  <h1 style="margin:0;color:#111827;font-size:28px;line-height:1.25;">Chiwa AI 最新方案</h1>
+                  <p style="color:#475467;font-size:16px;line-height:1.7;">您好 {{contactName}}，這封郵件可按 {{company}} 的行業、痛點與下一步行動進行個性化調整。</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 28px 28px;">
+                  <div style="border:1px dashed #b8c4d6;border-radius:8px;padding:28px;text-align:center;color:#64748b;">
+                    拖拽圖片到這裡，或使用左側 Asset Manager 上傳圖片
+                  </div>
+                  <p style="color:#344054;font-size:15px;line-height:1.7;margin:24px 0 0;">請在這裡放入產品亮點、案例、優惠或活動內容。</p>
+                  <p style="margin:24px 0 0;">
+                    <a href="https://chiwa.ai" style="background:#0f766e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 Chiwa AI</a>
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:18px 28px;background:#f8fafc;color:#667085;font-size:12px;line-height:1.6;">
+                  您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br>
+                  <a href="{{consent_url}}" style="color:#0f766e;">確認訂閱同意</a> ·
+                  <a href="{{unsubscribe_url}}" style="color:#0f766e;">退訂營銷郵件</a><br>
+                  Chiwa AI · https://chiwa.ai
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
+  function ensureDesignerComplianceHtml(html = "") {
+    let output = String(html || "");
+    const hasUnsubscribe = /\{\{\s*unsubscribe_?url\s*\}\}/i.test(output);
+    const hasArchive = /\{\{\s*web_?archive_?url\s*\}\}/i.test(output);
+    if (hasUnsubscribe && hasArchive) return output;
+    const compliance = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#667085;padding:16px 24px;background:#f8fafc;">
+        ${hasArchive ? "" : `<a href="{{web_archive_url}}" style="color:#0f766e;">查看網頁版</a><br>`}
+        ${hasUnsubscribe ? "" : `<a href="{{unsubscribe_url}}" style="color:#0f766e;">退訂營銷郵件</a><br>`}
+        Chiwa AI · https://chiwa.ai
+      </div>
+    `;
+    return `${output}${compliance}`;
+  }
+
+  function designerTemplateVariables() {
+    return {
+      contactName: "Sample Contact",
+      contactname: "Sample Contact",
+      contact_name: "Sample Contact",
+      company: "Sample Company",
+      email: "customer@example.com",
+      consenturl: "https://crm.chiwa.ai/consent?token=preview",
+      consent_url: "https://crm.chiwa.ai/consent?token=preview",
+      unsubscribeurl: "https://crm.chiwa.ai/unsubscribe?token=preview",
+      unsubscribe_url: "https://crm.chiwa.ai/unsubscribe?token=preview",
+      webarchiveurl: "https://chiwa.ai",
+      web_archive_url: "https://chiwa.ai",
+    };
+  }
+
+  function renderDesignerSample(value = "") {
+    const variables = designerTemplateVariables();
+    return String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
+      const normalized = key.toLowerCase();
+      return variables[normalized] ?? variables[normalized.replace(/[_-]/g, "")] ?? variables[key] ?? match;
+    });
+  }
+
+  function exportDesignerHtml() {
+    const editor = designerState.editor;
+    if (!editor) return "";
+    try {
+      const inlined = editor.runCommand("gjs-get-inlined-html");
+      if (inlined) return ensureDesignerComplianceHtml(inlined);
+    } catch {
+      // The newsletter command is unavailable in some GrapesJS builds; fall back to raw HTML and CSS.
+    }
+    const css = editor.getCss() || "";
+    const html = editor.getHtml() || "";
+    return ensureDesignerComplianceHtml(`${css ? `<style>${css}</style>` : ""}${html}`);
+  }
+
+  function addDesignerBlocks(editor) {
+    const blocks = editor.BlockManager;
+    blocks.add("chiwa-web-archive", {
+      label: "網頁版鏈接",
+      category: "Chiwa 合規",
+      content: `<p style="font-size:12px;text-align:center;"><a href="{{web_archive_url}}">查看網頁版</a></p>`,
+    });
+    blocks.add("chiwa-unsubscribe", {
+      label: "退訂鏈接",
+      category: "Chiwa 合規",
+      content: `<p style="font-size:12px;color:#667085;"><a href="{{unsubscribe_url}}">退訂營銷郵件</a></p>`,
+    });
+    blocks.add("chiwa-consent", {
+      label: "同意頁鏈接",
+      category: "Chiwa 合規",
+      content: `<p style="font-size:12px;color:#667085;"><a href="{{consent_url}}">確認接收 Marketing 郵件</a></p>`,
+    });
+    blocks.add("chiwa-cta", {
+      label: "Chiwa CTA",
+      category: "Chiwa Marketing",
+      content: `<p><a href="https://chiwa.ai" style="background:#0f766e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 Chiwa AI</a></p>`,
+    });
+  }
+
+  async function initializeEmailDesigner() {
+    if (designerState.initialized) return designerState.editor;
+    if (!window.grapesjs) {
+      $("designerStatus").textContent = "GrapesJS 未載入";
+      throw new Error("GrapesJS vendor files are missing");
+    }
+    const newsletterPreset = window["grapesjs-preset-newsletter"];
+    designerState.editor = window.grapesjs.init({
+      container: "#emailDesignerEditor",
+      height: "720px",
+      storageManager: false,
+      fromElement: false,
+      plugins: newsletterPreset ? [newsletterPreset] : [],
+      canvas: {
+        styles: [],
+      },
+      assetManager: {
+        uploadName: "files",
+        multiUpload: true,
+        autoAdd: true,
+        uploadFile: async (event) => {
+          try {
+            const files = event.dataTransfer ? event.dataTransfer.files : event.target.files;
+            const assets = await uploadEmailDesignerAssets(files || []);
+            designerState.editor.AssetManager.add(assets);
+            $("designerStatus").textContent = `已上傳 ${assets.length} 張圖片`;
+          } catch (error) {
+            $("designerStatus").textContent = error.message;
+            setToast(error.message);
+          }
+        },
+      },
+    });
+    addDesignerBlocks(designerState.editor);
+    designerState.editor.setComponents(designerStarterHtml());
+    designerState.initialized = true;
+    $("designerStatus").textContent = "設計器已就緒";
+    return designerState.editor;
+  }
+
+  function resetDesignerForm() {
+    $("designerTemplateIdField").value = "";
+    $("designerTemplateSelect").value = "";
+    $("designerTemplateNameField").value = "";
+    $("designerPurposeField").value = "marketing";
+    $("designerSubjectField").value = "";
+    if (designerState.editor) designerState.editor.setComponents(designerStarterHtml());
+    $("designerStatus").textContent = "新圖文模板";
+  }
+
+  function renderDesignerTemplateOptions(selectedId = "") {
+    const select = $("designerTemplateSelect");
+    if (!select) return;
+    const previous = selectedId || select.value;
+    select.innerHTML =
+      `<option value="">新建圖文模板</option>` +
+      mailState.templates
+        .map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name || template.subjectTemplate || template.id)} · ${escapeHtml(template.purpose || "support")}</option>`)
+        .join("");
+    if (previous && mailState.templates.some((template) => template.id === previous)) select.value = previous;
+  }
+
+  async function openDesignerTemplate(templateId) {
+    await initializeEmailDesigner();
+    if (!templateId) {
+      resetDesignerForm();
+      return;
+    }
+    const template = mailState.templates.find((item) => item.id === templateId);
+    if (!template) return;
+    $("designerTemplateIdField").value = template.id;
+    $("designerTemplateSelect").value = template.id;
+    $("designerTemplateNameField").value = template.name || "";
+    $("designerPurposeField").value = template.purpose || "marketing";
+    $("designerSubjectField").value = template.subjectTemplate || "";
+    const projectData = template.variables?.designerProject;
+    if (projectData) {
+      try {
+        designerState.editor.loadProjectData(projectData);
+      } catch {
+        designerState.editor.setComponents(template.htmlTemplate || `<p>${escapeHtml(template.textTemplate || "")}</p>`);
+      }
+    } else {
+      designerState.editor.setComponents(template.htmlTemplate || `<p>${escapeHtml(template.textTemplate || "")}</p>`);
+    }
+    $("designerStatus").textContent = `已打開：${template.name || template.id}`;
+  }
+
+  async function loadDesignerPage() {
+    await ensureTemplatesLoaded();
+    renderDesignerTemplateOptions();
+    await initializeEmailDesigner();
+  }
+
+  function insertDesignerToken(token) {
+    if (!designerState.editor) return;
+    designerState.editor.addComponents(`<span>${escapeHtml(token)}</span>`);
+    $("designerStatus").textContent = `已插入 ${token}`;
+  }
+
+  function previewDesignerHtml() {
+    const html = renderDesignerSample(exportDesignerHtml());
+    const preview = window.open("about:blank", "_blank");
+    if (!preview) {
+      setToast("瀏覽器阻止了預覽視窗");
+      return;
+    }
+    preview.document.write(html);
+    preview.document.close();
+  }
+
+  async function saveDesignerTemplate(event) {
+    event.preventDefault();
+    const name = $("designerTemplateNameField").value.trim();
+    const subjectTemplate = $("designerSubjectField").value.trim();
+    if (!name || !subjectTemplate) {
+      setToast("請填寫模板名稱和主題");
+      return;
+    }
+    await initializeEmailDesigner();
+    const htmlTemplate = exportDesignerHtml();
+    const templateId = $("designerTemplateIdField").value;
+    const payload = {
+      name,
+      purpose: $("designerPurposeField").value,
+      subjectTemplate,
+      htmlTemplate,
+      textTemplate: htmlToText(htmlTemplate),
+      variables: {
+        source: "grapesjs",
+        compliance: {
+          unsubscribeUrl: "{{unsubscribe_url}}",
+          webArchiveUrl: "{{web_archive_url}}",
+          consentUrl: "{{consent_url}}",
+        },
+        designerProject: designerState.editor.getProjectData(),
+      },
+    };
+    const saved = await apiRequest(templateId ? `/api/admin/templates/${encodeURIComponent(templateId)}` : "/api/admin/templates", {
+      method: templateId ? "PUT" : "POST",
+      body: JSON.stringify(payload),
+    });
+    await loadTemplates();
+    await openDesignerTemplate(saved.template?.id || templateId);
+    setToast("圖文模板已保存，可在客戶發信和 Campaign 中使用");
+  }
+
   function renderTemplates(templates = mailState.templates) {
     $("templateCountLabel").textContent = `${templates.length} 個模板`;
     $("templateList").innerHTML =
@@ -1505,6 +1813,7 @@
               </div>
               <div class="mail-actions">
                 <button class="icon-only" data-use-template="${escapeHtml(template.id)}" title="套用到客戶郵件"><i data-lucide="copy-check"></i></button>
+                <button class="icon-only" data-design-template="${escapeHtml(template.id)}" title="打開設計器"><i data-lucide="layout-template"></i></button>
                 <button class="icon-only" data-edit-template="${escapeHtml(template.id)}" title="編輯模板"><i data-lucide="pencil"></i></button>
                 <button class="icon-only danger" data-delete-template="${escapeHtml(template.id)}" title="刪除模板"><i data-lucide="trash-2"></i></button>
               </div>
@@ -1523,6 +1832,7 @@
     renderDrawerTemplateOptions();
     renderInboxReplyTemplateOptions();
     renderCampaignTemplateOptions();
+    renderDesignerTemplateOptions();
   }
 
   async function ensureTemplatesLoaded() {
@@ -1588,7 +1898,7 @@
     $("templateNameField").value = template.name || "";
     $("templatePurposeField").value = template.purpose || "support";
     $("templateSubjectField").value = template.subjectTemplate || "";
-    $("templateTextField").value = template.textTemplate || "";
+    $("templateTextField").value = template.textTemplate || htmlToText(template.htmlTemplate || "");
     $("templateEditLabel").textContent = template.name || "模板編輯";
   }
 
@@ -1602,7 +1912,8 @@
     $("emailPurposeField").value = template.purpose || "support";
     setSignatureForPurpose({ force: true });
     $("emailSubjectField").value = template.subjectTemplate || "";
-    $("emailBodyField").value = template.textTemplate || "";
+    $("emailBodyField").value = template.textTemplate || htmlToText(template.htmlTemplate || "");
+    $("emailBodyField").dataset.htmlContent = template.htmlTemplate || "";
     $("drawerTemplateSelect").value = template.id;
     updateMarketingPurposeNotice();
     focusEmailComposer();
@@ -1703,6 +2014,7 @@
       name: $("campaignNameField").value.trim(),
       subject: $("campaignSubjectField").value.trim(),
       textContent: $("campaignTextField").value.trim(),
+      htmlContent: $("campaignTextField").dataset.htmlContent || "",
       segmentFilter: {
         leadIds,
         priority: $("campaignPriorityField").value,
@@ -1719,6 +2031,7 @@
     $("campaignIdField").value = "";
     $("campaignEstimatedCountField").value = "";
     $("campaignSampleJsonField").value = "";
+    $("campaignTextField").dataset.htmlContent = "";
     $("campaignEstimateLabel").textContent = "尚未預估";
     $("campaignAudiencePreview").innerHTML = "";
     $("campaignPreviewPane").innerHTML = "";
@@ -1738,6 +2051,7 @@
     $("campaignNameField").value = campaign.name || "";
     $("campaignSubjectField").value = campaign.subject || "";
     $("campaignTextField").value = campaign.textContent || "";
+    $("campaignTextField").dataset.htmlContent = campaign.htmlContent || "";
     $("campaignLeadIdsField").value = (campaign.segmentFilter?.leadIds || []).join("\n");
     $("campaignPriorityField").value = campaign.segmentFilter?.priority || "";
     $("campaignAudienceNameField").value = campaign.segmentFilter?.savedView || "";
@@ -1806,7 +2120,8 @@
     const template = mailState.templates.find((item) => item.id === $("campaignTemplateSelect").value);
     if (!template) return;
     $("campaignSubjectField").value = template.subjectTemplate || "";
-    $("campaignTextField").value = template.textTemplate || "";
+    $("campaignTextField").value = template.textTemplate || htmlToText(template.htmlTemplate || "");
+    $("campaignTextField").dataset.htmlContent = template.htmlTemplate || "";
     renderCampaignPreview();
   }
 
@@ -1821,13 +2136,24 @@
       email: sample.email || "customer@example.com",
       consenturl: "https://crm.chiwa.ai/consent?token=preview",
       unsubscribeurl: "https://crm.chiwa.ai/unsubscribe?token=preview",
+      consent_url: "https://crm.chiwa.ai/consent?token=preview",
+      unsubscribe_url: "https://crm.chiwa.ai/unsubscribe?token=preview",
+      web_archive_url: "https://chiwa.ai",
     };
     const render = (value) =>
-      String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => variables[key.toLowerCase()] || match);
+      String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
+        const normalized = key.toLowerCase();
+        return variables[normalized] ?? variables[normalized.replace(/[_-]/g, "")] ?? match;
+      });
+    const htmlPreview = $("campaignTextField").dataset.htmlContent || "";
     $("campaignPreviewPane").innerHTML = `
       <div class="email-message-item">
         <strong>${escapeHtml(render($("campaignSubjectField").value || "Campaign subject"))}</strong>
-        <p class="message-body">${escapeHtml(render($("campaignTextField").value || "Campaign body preview"))}</p>
+        ${
+          htmlPreview
+            ? `<iframe title="Campaign HTML preview" class="campaign-html-preview" srcdoc="${escapeHtml(render(htmlPreview))}"></iframe>`
+            : `<p class="message-body">${escapeHtml(render($("campaignTextField").value || "Campaign body preview"))}</p>`
+        }
         <p class="muted-body">退訂鏈接和公司地址會在後端正式發送時自動加入。</p>
       </div>
     `;
@@ -3322,6 +3648,7 @@
   function loadTabData(tabName) {
     if (tabName === "inbox") return loadInbox();
     if (tabName === "templates") return loadTemplates();
+    if (tabName === "designer") return loadDesignerPage();
     if (tabName === "campaigns") return loadCampaigns();
     if (tabName === "analysis") return loadEmailAnalytics();
     return Promise.resolve();
@@ -3427,6 +3754,9 @@
     ["companyField", "contactField", "painField", "nextField", "emailSubjectField", "emailBodyField", "emailSignatureField"].forEach((id) => {
       $(id).addEventListener("input", renderEmailComposerAssist);
     });
+    $("emailBodyField").addEventListener("input", () => {
+      $("emailBodyField").dataset.htmlContent = "";
+    });
     $("drawerTemplateSelect").addEventListener("change", renderEmailComposerAssist);
     $("deleteLeadBtn").addEventListener("click", deleteCurrentLead);
     $("applyDrawerTemplateBtn").addEventListener("click", () => runAsync(applySelectedTemplateToDrawer));
@@ -3483,6 +3813,18 @@
         editTemplate(edit.dataset.editTemplate);
         return;
       }
+      const design = event.target.closest("[data-design-template]");
+      if (design) {
+        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+        document.querySelectorAll(".tab-pane").forEach((pane) => pane.classList.remove("active"));
+        document.querySelector('[data-tab="designer"]').classList.add("active");
+        $("designerPane").classList.add("active");
+        runAsync(async () => {
+          await loadDesignerPage();
+          await openDesignerTemplate(design.dataset.designTemplate);
+        });
+        return;
+      }
       const remove = event.target.closest("[data-delete-template]");
       if (remove) {
         runAsync(() => deleteTemplate(remove.dataset.deleteTemplate));
@@ -3492,9 +3834,27 @@
       if (use) applyTemplateToDrawer(use.dataset.useTemplate);
     });
     $("campaignForm").addEventListener("submit", (event) => runAsync(() => saveCampaign(event)));
+    $("designerForm").addEventListener("submit", (event) => runAsync(() => saveDesignerTemplate(event)));
+    $("designerTemplateSelect").addEventListener("change", (event) => runAsync(() => openDesignerTemplate(event.target.value)));
+    $("designerNewBtn").addEventListener("click", () => runAsync(async () => {
+      await initializeEmailDesigner();
+      resetDesignerForm();
+    }));
+    $("designerPreviewBtn").addEventListener("click", () => runAsync(async () => {
+      await initializeEmailDesigner();
+      previewDesignerHtml();
+    }));
+    $("designerTokenButtons").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-designer-token]");
+      if (button) insertDesignerToken(button.dataset.designerToken);
+    });
     $("refreshCampaignsBtn").addEventListener("click", () => runAsync(loadCampaigns));
     $("newCampaignBtn").addEventListener("click", resetCampaignWizard);
     $("campaignTemplateSelect").addEventListener("change", applyCampaignTemplate);
+    $("campaignTextField").addEventListener("input", () => {
+      $("campaignTextField").dataset.htmlContent = "";
+      renderCampaignPreview();
+    });
     $("estimateCampaignBtn").addEventListener("click", () => runAsync(estimateCampaignAudience));
     $("testCampaignBtn").addEventListener("click", () => runAsync(testCampaignSend));
     $("startCampaignBtn").addEventListener("click", () => runAsync(startCampaign));

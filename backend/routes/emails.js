@@ -45,21 +45,30 @@ function contactDisplayName(contact) {
 function renderTemplateVariables(value = "", variables = {}) {
   return String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
     const normalized = key.toLowerCase();
-    return variables[normalized] ?? variables[key] ?? match;
+    const compact = normalized.replace(/[_-]/g, "");
+    return variables[normalized] ?? variables[compact] ?? variables[key] ?? match;
   });
 }
 
 function templateVariablesForContact(contact) {
   const consentUrl = buildConsentUrl(contact.id);
   const unsubscribeUrl = buildUnsubscribeUrl(contact.id);
+  const webArchiveUrl = process.env.PUBLIC_WEBSITE_URL || "https://chiwa.ai";
   const contactName = contactDisplayName(contact);
   return {
     consenturl: consentUrl,
+    consent_url: consentUrl,
     unsubscribeurl: unsubscribeUrl,
+    unsubscribe_url: unsubscribeUrl,
+    webarchiveurl: webArchiveUrl,
+    web_archive_url: webArchiveUrl,
     company: contact.company || "",
     contactname: contactName,
+    contact_name: contactName,
     firstname: contact.firstName || "",
+    first_name: contact.firstName || "",
     lastname: contact.lastName || "",
+    last_name: contact.lastName || "",
     email: contact.email || "",
   };
 }

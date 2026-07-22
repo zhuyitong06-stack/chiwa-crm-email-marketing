@@ -63,23 +63,31 @@ function audiencePayload(campaign) {
 
 function variablesForContact(contact) {
   const siteUrl = process.env.SITE_URL || "https://crm.chiwa.ai";
+  const webArchiveUrl = process.env.PUBLIC_WEBSITE_URL || "https://chiwa.ai";
   const consentUrl = new URL("/consent", siteUrl);
   consentUrl.searchParams.set("token", createConsentToken(contact.id));
   const unsubscribeUrl = new URL("/unsubscribe", siteUrl);
   unsubscribeUrl.searchParams.set("token", createUnsubscribeToken(contact.id));
+  const contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim();
   return {
-    contactname: [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim(),
+    contactname: contactName,
+    contact_name: contactName,
     company: contact.company || "",
     email: contact.email || "",
     consenturl: consentUrl.toString(),
+    consent_url: consentUrl.toString(),
     unsubscribeurl: unsubscribeUrl.toString(),
+    unsubscribe_url: unsubscribeUrl.toString(),
+    webarchiveurl: webArchiveUrl,
+    web_archive_url: webArchiveUrl,
   };
 }
 
 function renderVariables(value = "", variables = {}) {
   return String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {
     const normalized = key.toLowerCase();
-    return variables[normalized] ?? variables[key] ?? match;
+    const compact = normalized.replace(/[_-]/g, "");
+    return variables[normalized] ?? variables[compact] ?? variables[key] ?? match;
   });
 }
 

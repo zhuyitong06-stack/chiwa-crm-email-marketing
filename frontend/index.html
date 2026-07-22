@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./vendor/grapes.min.css" />
     <link rel="stylesheet" href="./styles.css" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
@@ -135,6 +136,7 @@
             <button class="tab" data-tab="crm">CRM 主表</button>
             <button class="tab" data-tab="inbox">Inbox</button>
             <button class="tab" data-tab="templates">郵件模板</button>
+            <button class="tab" data-tab="designer">郵件營銷模板設計</button>
             <button class="tab" data-tab="campaigns">Campaign</button>
             <button class="tab" data-tab="analysis">分析與轉化</button>
           </nav>
@@ -322,6 +324,74 @@
                     </button>
                   </div>
                 </form>
+              </section>
+            </div>
+          </section>
+
+          <section class="tab-pane" id="designerPane">
+            <div class="designer-workspace">
+              <section class="work-card designer-sidebar">
+                <div class="card-title">
+                  <h2>模板設計資料</h2>
+                  <span id="designerStatus">等待初始化</span>
+                </div>
+                <form id="designerForm" class="mail-form">
+                  <input type="hidden" id="designerTemplateIdField" />
+                  <label>打開現有模板
+                    <select id="designerTemplateSelect">
+                      <option value="">新建圖文模板</option>
+                    </select>
+                  </label>
+                  <label>模板名稱 <input id="designerTemplateNameField" required placeholder="如：香港美妝行業推廣 EDM" /></label>
+                  <label>用途
+                    <select id="designerPurposeField">
+                      <option value="marketing">Marketing</option>
+                      <option value="sales">Sales</option>
+                      <option value="support">Support</option>
+                      <option value="transactional">Transactional</option>
+                    </select>
+                  </label>
+                  <label>主題 <input id="designerSubjectField" required placeholder="輸入發信主題，可使用 {{company}}" /></label>
+                  <div class="compliance-preview designer-compliance">
+                    <strong>合規占位符</strong>
+                    <span>必備：{{unsubscribe_url}}</span>
+                    <span>推薦：{{web_archive_url}}、{{consent_url}}</span>
+                    <span>公司網站：chiwa.ai</span>
+                  </div>
+                  <div class="designer-token-grid" id="designerTokenButtons">
+                    <button type="button" data-designer-token="{{contactName}}">客戶名</button>
+                    <button type="button" data-designer-token="{{company}}">公司名</button>
+                    <button type="button" data-designer-token="{{email}}">Email</button>
+                    <button type="button" data-designer-token="{{consent_url}}">同意頁</button>
+                    <button type="button" data-designer-token="{{unsubscribe_url}}">退訂</button>
+                    <button type="button" data-designer-token="{{web_archive_url}}">網頁版</button>
+                  </div>
+                  <div class="drawer-actions">
+                    <button type="button" class="icon-button secondary" id="designerNewBtn">
+                      <i data-lucide="file-plus-2"></i>
+                      新設計
+                    </button>
+                    <button type="button" class="icon-button secondary" id="designerPreviewBtn">
+                      <i data-lucide="eye"></i>
+                      預覽 HTML
+                    </button>
+                    <button type="submit" class="icon-button primary">
+                      <i data-lucide="save"></i>
+                      保存為模板
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="work-card designer-editor-card">
+                <div class="card-title">
+                  <h2>拖拽式圖文編輯器</h2>
+                  <span>GrapesJS + Newsletter preset</span>
+                </div>
+                <div class="designer-toolbar-note">
+                  支援圖片拖拽上傳；發送 Marketing 郵件時，後端仍會自動追加公司地址與退訂鏈接。
+                </div>
+                <div id="emailDesignerEditor" class="email-designer-editor"></div>
               </section>
             </div>
           </section>
@@ -648,6 +718,8 @@
     <script>
       window.CRM_API_BASE = window.CRM_API_BASE || "";
     </script>
+    <script src="./vendor/grapes.min.js"></script>
+    <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

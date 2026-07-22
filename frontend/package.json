@@ -1,0 +1,14 @@
+{
+  "name": "tdc-crm-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-vendor": "node scripts/sync-grapesjs-vendor.mjs",
+    "check": "node --check app.js"
+  },
+  "dependencies": {
+    "grapesjs": "^0.22.14",
+    "grapesjs-preset-newsletter": "^1.0.2"
+  }
+}

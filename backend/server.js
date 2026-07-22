@@ -11,6 +11,7 @@ import campaignsRouter from "./routes/campaigns.js";
 import inboxRouter from "./routes/inbox.js";
 import templatesRouter from "./routes/templates.js";
 import analyticsRouter from "./routes/analytics.js";
+import uploadsRouter from "./routes/uploads.js";
 import webhooksRouter from "./routes/webhooks.js";
 import unsubscribeRouter from "./routes/unsubscribe.js";
 
@@ -20,6 +21,7 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "127.0.0.1" : "0.0.0.0");
 const frontendDir = path.resolve(__dirname, "../frontend");
+const uploadsDir = path.resolve(__dirname, "data/uploads");
 
 initializeDb();
 
@@ -77,11 +79,13 @@ app.use("/api/admin", campaignsRouter);
 app.use("/api/admin", inboxRouter);
 app.use("/api/admin", templatesRouter);
 app.use("/api/admin", analyticsRouter);
+app.use("/api/admin", uploadsRouter);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({ ok: false, error: "API route not found" });
 });
 
+app.use("/uploads", express.static(uploadsDir, { maxAge: "30d", immutable: true }));
 app.use(express.static(frontendDir));
 app.get("*", (_req, res) => {
   res.sendFile(path.join(frontendDir, "index.html"));

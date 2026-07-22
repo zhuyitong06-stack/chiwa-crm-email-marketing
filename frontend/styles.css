@@ -1351,6 +1351,91 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.designer-workspace {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.designer-sidebar {
+  align-self: start;
+}
+
+.designer-editor-card {
+  min-width: 0;
+}
+
+.designer-compliance {
+  align-items: flex-start;
+  display: grid;
+  gap: 6px;
+}
+
+.designer-token-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.designer-token-grid button {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 8px;
+}
+
+.designer-token-grid button:hover {
+  background: #eef6ff;
+  border-color: #9cc8ff;
+}
+
+.designer-toolbar-note {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.email-designer-editor {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 720px;
+  overflow: hidden;
+}
+
+.email-designer-editor .gjs-one-bg {
+  background-color: #182235;
+}
+
+.email-designer-editor .gjs-two-color {
+  color: #e6edf7;
+}
+
+.email-designer-editor .gjs-three-bg {
+  background-color: #177b6c;
+}
+
+.email-designer-editor .gjs-four-color,
+.email-designer-editor .gjs-four-color-h:hover {
+  color: #29b394;
+}
+
+.campaign-html-preview {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 420px;
+  margin-top: 10px;
+  width: 100%;
+}
+
 .toast {
   background: #0f172a;
   border-radius: 8px;
@@ -1376,7 +1461,8 @@ textarea:focus {
   .dashboard-layout,
   .analysis-grid,
   .mail-grid,
-  .campaign-workspace {
+  .campaign-workspace,
+  .designer-workspace {
     grid-template-columns: 1fr;
   }
 
