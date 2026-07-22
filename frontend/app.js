@@ -1645,6 +1645,11 @@
       category: "Chiwa Marketing",
       content: `<p><a href="https://chiwa.ai" style="background:#0f766e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 Chiwa AI</a></p>`,
     });
+    blocks.add("postsage-cta", {
+      label: "PostSage CTA",
+      category: "Chiwa Marketing",
+      content: `<p><a href="https://postsage.ai/r/KEz9YGV6yhJHJgzB" style="background:#eb6a3e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 PostSage</a></p>`,
+    });
     blocks.add("chiwa-signature", {
       label: "簡潔簽名",
       category: "Chiwa Marketing",
