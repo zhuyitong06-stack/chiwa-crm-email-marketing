@@ -1393,6 +1393,28 @@ textarea:focus {
   overflow-y: visible;
 }
 
+.designer-editor-card.focused {
+  background: #fff;
+  border-radius: 8px;
+  inset: 12px;
+  overflow: auto;
+  padding: 12px;
+  position: fixed;
+  z-index: 80;
+}
+
+.designer-focus-active {
+  overflow: hidden;
+}
+
+.designer-editor-title-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .designer-assets-card {
   min-width: 0;
 }
@@ -1416,6 +1438,59 @@ textarea:focus {
 .designer-textarea {
   min-height: 150px;
   resize: vertical;
+}
+
+.designer-text-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.designer-text-block-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 250px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.designer-text-block {
+  align-items: start;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-height: 52px;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.designer-text-block:hover,
+.designer-text-block.active {
+  background: #eef6ff;
+  border-color: #86b7ee;
+}
+
+.designer-text-block span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.designer-text-block strong {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .designer-assets-toolbar {
@@ -1547,10 +1622,15 @@ textarea:focus {
 .email-designer-editor {
   border: 1px solid var(--line);
   border-radius: 8px;
-  height: min(820px, calc(100vh - 265px));
+  height: min(880px, calc(100vh - 225px));
   min-height: 640px;
   overflow: hidden;
   width: 100%;
+}
+
+.designer-editor-card.focused .email-designer-editor {
+  height: calc(100vh - 118px);
+  min-height: 0;
 }
 
 .designer-editor-card .card-title {

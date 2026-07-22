@@ -103,6 +103,9 @@
     initialized: false,
     assets: [],
     selectedTextComponent: null,
+    textBlocks: [],
+    textBlockRefreshTimer: 0,
+    focusMode: false,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -951,7 +954,9 @@
   }
 
   function currentComposerTextContent() {
-    return [currentComposerBody(), $("emailSignatureField").value.trim()].filter(Boolean).join("\n\n");
+    const body = currentComposerBody();
+    if ($("emailBodyField").dataset.htmlContent) return body;
+    return [body, $("emailSignatureField").value.trim()].filter(Boolean).join("\n\n");
   }
 
   function textToHtmlParagraphs(value = "") {
@@ -963,9 +968,8 @@
 
   function currentComposerHtmlContent() {
     const templateHtml = $("emailBodyField").dataset.htmlContent || "";
-    const signature = $("emailSignatureField").value.trim();
     if (!templateHtml) return "";
-    return `${templateHtml}${signature ? `<br>${textToHtmlParagraphs(signature)}` : ""}`;
+    return templateHtml;
   }
 
   function renderCustomerSnapshot(lead = getLead($("leadIdField")?.value)) {
@@ -1570,14 +1574,6 @@
                   </p>
                 </td>
               </tr>
-              <tr>
-                <td style="padding:18px 28px;background:#f8fafc;color:#667085;font-size:12px;line-height:1.6;">
-                  您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br>
-                  <a href="{{consent_url}}" style="color:#0f766e;">確認訂閱同意</a> ·
-                  <a href="{{unsubscribe_url}}" style="color:#0f766e;">退訂營銷郵件</a><br>
-                  Chiwa AI · https://chiwa.ai
-                </td>
-              </tr>
             </table>
           </td>
         </tr>
@@ -1586,18 +1582,7 @@
   }
 
   function ensureDesignerComplianceHtml(html = "") {
-    let output = String(html || "");
-    const hasUnsubscribe = /\{\{\s*unsubscribe_?url\s*\}\}/i.test(output);
-    const hasArchive = /\{\{\s*web_?archive_?url\s*\}\}/i.test(output);
-    if (hasUnsubscribe && hasArchive) return output;
-    const compliance = `
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#667085;padding:16px 24px;background:#f8fafc;">
-        ${hasArchive ? "" : `<a href="{{web_archive_url}}" style="color:#0f766e;">查看網頁版</a><br>`}
-        ${hasUnsubscribe ? "" : `<a href="{{unsubscribe_url}}" style="color:#0f766e;">退訂營銷郵件</a><br>`}
-        Chiwa AI · https://chiwa.ai
-      </div>
-    `;
-    return `${output}${compliance}`;
+    return String(html || "");
   }
 
   function designerTemplateVariables() {
@@ -1660,6 +1645,15 @@
       category: "Chiwa Marketing",
       content: `<p><a href="https://chiwa.ai" style="background:#0f766e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 Chiwa AI</a></p>`,
     });
+    blocks.add("chiwa-signature", {
+      label: "簡潔簽名",
+      category: "Chiwa Marketing",
+      content: `<div style="font-family:Arial,Helvetica,sans-serif;color:#344054;font-size:14px;line-height:1.6;margin-top:24px;">
+        Best regards,<br>
+        Chiwa AI Insights<br>
+        <a href="https://chiwa.ai" style="color:#0f766e;text-decoration:underline;">https://chiwa.ai</a>
+      </div>`,
+    });
   }
 
   function renderDesignerAssetLibrary() {
@@ -1707,16 +1701,122 @@
     return designerState.editor?.getSelected?.() || null;
   }
 
+  function designerComponentTag(component) {
+    return String(component?.get?.("tagName") || component?.get?.("type") || "").toLowerCase();
+  }
+
+  function designerComponentChildren(component) {
+    const children = component?.components?.();
+    if (!children?.each) return [];
+    const items = [];
+    children.each((child) => items.push(child));
+    return items;
+  }
+
+  function isDesignerTextTag(tagName) {
+    return ["p", "span", "td", "th", "h1", "h2", "h3", "h4", "li", "a", "strong", "em"].includes(tagName);
+  }
+
+  function hasDesignerTextChild(component) {
+    return designerComponentChildren(component).some((child) => {
+      const childTag = designerComponentTag(child);
+      return isDesignerTextTag(childTag) || hasDesignerTextChild(child);
+    });
+  }
+
+  function isDesignerTextLikeComponent(component) {
+    if (!component) return false;
+    const tagName = designerComponentTag(component);
+    const type = String(component.get?.("type") || "").toLowerCase();
+    if (["text", "textnode"].includes(type)) return Boolean(plainTextFromDesignerComponent(component));
+    if (!isDesignerTextTag(tagName)) return false;
+    if (["td", "th"].includes(tagName) && hasDesignerTextChild(component)) return false;
+    return Boolean(plainTextFromDesignerComponent(component));
+  }
+
+  function walkDesignerComponents(component, visitor) {
+    if (!component) return;
+    visitor(component);
+    designerComponentChildren(component).forEach((child) => walkDesignerComponents(child, visitor));
+  }
+
+  function collectDesignerTextBlocks() {
+    if (!designerState.editor) return [];
+    const wrapper = designerState.editor.DomComponents.getWrapper();
+    const seen = new Set();
+    const blocks = [];
+    walkDesignerComponents(wrapper, (component) => {
+      if (!isDesignerTextLikeComponent(component)) return;
+      const cid = component.cid || component.getId?.() || "";
+      if (!cid || seen.has(cid)) return;
+      seen.add(cid);
+      const tagName = designerComponentTag(component) || "text";
+      const preview = plainTextFromDesignerComponent(component);
+      blocks.push({ cid, component, tagName, preview });
+    });
+    designerState.textBlocks = blocks;
+    return blocks;
+  }
+
+  function renderDesignerTextBlockList() {
+    const container = $("designerTextBlockList");
+    if (!container) return;
+    const blocks = designerState.textBlocks || [];
+    const selectedCid = designerState.selectedTextComponent?.cid || "";
+    container.innerHTML =
+      blocks
+        .map(
+          (block, index) => `
+            <button type="button" class="designer-text-block${block.cid === selectedCid ? " active" : ""}" data-designer-text-block="${escapeHtml(block.cid)}">
+              <span>${index + 1}. ${escapeHtml(block.tagName.toUpperCase())}</span>
+              <strong>${escapeHtml(block.preview.slice(0, 96) || "空文字區塊")}</strong>
+            </button>
+          `,
+        )
+        .join("") || `<div class="mail-empty">尚未找到可編輯文字塊。請先新增文字或打開模板。</div>`;
+  }
+
+  function refreshDesignerTextBlocks({ silent = false } = {}) {
+    const blocks = collectDesignerTextBlocks();
+    renderDesignerTextBlockList();
+    if (!silent && $("designerTextStatus")) {
+      $("designerTextStatus").textContent = blocks.length ? `已掃描 ${blocks.length} 個文字塊` : "尚未找到可編輯文字塊";
+    }
+    return blocks;
+  }
+
+  function scheduleDesignerTextBlockRefresh() {
+    clearTimeout(designerState.textBlockRefreshTimer);
+    designerState.textBlockRefreshTimer = window.setTimeout(() => refreshDesignerTextBlocks({ silent: true }), 180);
+  }
+
+  function findDesignerTextBlockComponent(cid) {
+    if (!cid) return null;
+    return (designerState.textBlocks || []).find((block) => block.cid === cid)?.component || collectDesignerTextBlocks().find((block) => block.cid === cid)?.component || null;
+  }
+
+  function selectDesignerTextBlock(cid) {
+    const component = findDesignerTextBlockComponent(cid);
+    if (!component || !designerState.editor) return;
+    designerState.editor.select(component);
+    updateDesignerTextPanel(component);
+    renderDesignerTextBlockList();
+    try {
+      component.view?.el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    } catch {
+      // Selection still works when the embedded canvas cannot expose scrollIntoView.
+    }
+  }
+
   function selectedDesignerTextComponent() {
     const component = selectedDesignerComponent();
     if (!component) return null;
-    const tagName = String(component.get?.("tagName") || "").toLowerCase();
-    const type = String(component.get?.("type") || "").toLowerCase();
-    if (["text", "textnode"].includes(type)) return component;
-    if (["p", "div", "span", "td", "th", "h1", "h2", "h3", "h4", "li", "a", "strong"].includes(tagName)) return component;
-    const html = component.toHTML?.() || "";
-    const text = htmlToText(html);
-    return text ? component : null;
+    if (isDesignerTextLikeComponent(component)) return component;
+    const children = [];
+    walkDesignerComponents(component, (child) => {
+      if (child !== component && isDesignerTextLikeComponent(child)) children.push(child);
+    });
+    return children[0] || null;
   }
 
   function plainTextFromDesignerComponent(component) {
@@ -1738,6 +1838,25 @@
       .join("");
   }
 
+  function stableTextHtmlForComponent(component, text = "") {
+    const normalizedText = String(text || "").replace(/\r\n/g, "\n").trim();
+    const safeText = escapeHtml(normalizedText || " ").replace(/\n/g, "<br>");
+    const tagName = designerComponentTag(component);
+    if (["td", "th"].includes(tagName)) return stableParagraphHtml(normalizedText);
+    return safeText;
+  }
+
+  function setDesignerComponentText(component, text = "") {
+    if (!component) return;
+    const type = String(component.get?.("type") || "").toLowerCase();
+    const content = stableTextHtmlForComponent(component, text);
+    if (["text", "textnode"].includes(type)) {
+      component.set("content", content);
+      return;
+    }
+    component.components(content);
+  }
+
   function textStyleFromDesignerFields() {
     return {
       "font-family": $("designerTextFontField")?.value || "Arial, Helvetica, sans-serif",
@@ -1751,6 +1870,7 @@
     designerState.selectedTextComponent = component || null;
     if (!component) {
       $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
+      renderDesignerTextBlockList();
       return;
     }
     const style = component.getStyle?.() || {};
@@ -1761,6 +1881,7 @@
     $("designerTextContentField").value = plainTextFromDesignerComponent(component);
     const tagName = component.get?.("tagName") || component.get?.("type") || "區塊";
     $("designerTextStatus").textContent = `已選中：${tagName}`;
+    renderDesignerTextBlockList();
   }
 
   function applyDesignerStableText({ normalizeOnly = false } = {}) {
@@ -1770,15 +1891,49 @@
       return;
     }
     const text = normalizeOnly ? plainTextFromDesignerComponent(component) : $("designerTextContentField").value;
-    component.components(stableParagraphHtml(text));
+    setDesignerComponentText(component, text);
     component.setStyle({
       ...(component.getStyle?.() || {}),
       ...textStyleFromDesignerFields(),
     });
     designerState.selectedTextComponent = component;
     updateDesignerTextPanel(component);
+    refreshDesignerTextBlocks({ silent: true });
     refreshEmailDesignerLayout();
     setToast(normalizeOnly ? "已清理選中區塊樣式" : "文字已穩定套用");
+  }
+
+  function applyDesignerTextStyleAll({ normalizeTextContent = false } = {}) {
+    const blocks = refreshDesignerTextBlocks({ silent: true });
+    if (!blocks.length) {
+      setToast("尚未找到可套用的文字塊");
+      return;
+    }
+    const style = textStyleFromDesignerFields();
+    blocks.forEach(({ component }) => {
+      if (normalizeTextContent) setDesignerComponentText(component, plainTextFromDesignerComponent(component));
+      component.setStyle({
+        ...(component.getStyle?.() || {}),
+        ...style,
+      });
+    });
+    refreshDesignerTextBlocks({ silent: true });
+    refreshEmailDesignerLayout();
+    setToast(normalizeTextContent ? `已清理並套用 ${blocks.length} 個文字塊` : `已批量套用 ${blocks.length} 個文字塊`);
+  }
+
+  function toggleDesignerFocusMode() {
+    const card = document.querySelector(".designer-editor-card");
+    if (!card) return;
+    designerState.focusMode = !designerState.focusMode;
+    card.classList.toggle("focused", designerState.focusMode);
+    document.body.classList.toggle("designer-focus-active", designerState.focusMode);
+    const button = $("designerFocusEditorBtn");
+    if (button) {
+      button.innerHTML = designerState.focusMode ? `<i data-lucide="minimize-2"></i>退出專注` : `<i data-lucide="maximize-2"></i>專注編輯`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+    refreshEmailDesignerLayout();
   }
 
   async function loadDesignerAssets({ silent = false } = {}) {
@@ -1856,6 +2011,11 @@
     designerState.editor.on("component:deselected", () => {
       designerState.selectedTextComponent = null;
       $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
+      renderDesignerTextBlockList();
+    });
+    designerState.editor.on("component:add component:remove component:update", scheduleDesignerTextBlockRefresh);
+    designerState.editor.on("rte:enable", () => {
+      $("designerTextStatus").textContent = "畫布內可快速微調；大量文字建議用上方穩定文字編輯";
     });
     designerState.editor.setComponents(designerStarterHtml());
     designerState.initialized = true;
@@ -1863,6 +2023,7 @@
     loadDesignerAssets({ silent: true }).catch((error) => {
       $("designerAssetStatus").textContent = error.message;
     });
+    refreshDesignerTextBlocks({ silent: true });
     refreshEmailDesignerLayout();
     return designerState.editor;
   }
@@ -1886,6 +2047,7 @@
     $("designerSubjectField").value = "";
     if (designerState.editor) designerState.editor.setComponents(designerStarterHtml());
     $("designerStatus").textContent = "新圖文模板";
+    refreshDesignerTextBlocks({ silent: true });
     refreshEmailDesignerLayout();
   }
 
@@ -1925,6 +2087,7 @@
       designerState.editor.setComponents(template.htmlTemplate || `<p>${escapeHtml(template.textTemplate || "")}</p>`);
     }
     $("designerStatus").textContent = `已打開：${template.name || template.id}`;
+    refreshDesignerTextBlocks({ silent: true });
     refreshEmailDesignerLayout();
   }
 
@@ -1940,6 +2103,7 @@
     if (!designerState.editor) return;
     designerState.editor.addComponents(`<span>${escapeHtml(token)}</span>`);
     $("designerStatus").textContent = `已插入 ${token}`;
+    refreshDesignerTextBlocks({ silent: true });
   }
 
   function previewDesignerHtml() {
@@ -4048,6 +4212,14 @@
     $("designerLoadTextBtn").addEventListener("click", () => updateDesignerTextPanel());
     $("designerNormalizeTextBtn").addEventListener("click", () => applyDesignerStableText({ normalizeOnly: true }));
     $("designerApplyTextBtn").addEventListener("click", () => applyDesignerStableText());
+    $("designerRefreshTextBlocksBtn").addEventListener("click", () => refreshDesignerTextBlocks());
+    $("designerApplyTextStyleAllBtn").addEventListener("click", () => applyDesignerTextStyleAll());
+    $("designerNormalizeAllTextBtn").addEventListener("click", () => applyDesignerTextStyleAll({ normalizeTextContent: true }));
+    $("designerTextBlockList").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-designer-text-block]");
+      if (button) selectDesignerTextBlock(button.dataset.designerTextBlock);
+    });
+    $("designerFocusEditorBtn").addEventListener("click", () => toggleDesignerFocusMode());
     $("designerTextContentField").addEventListener("paste", (event) => {
       event.preventDefault();
       const text = event.clipboardData?.getData("text/plain") || "";

@@ -454,12 +454,33 @@
                     套用文字
                   </button>
                 </div>
+                <div class="designer-text-bulk-actions">
+                  <button type="button" class="icon-button secondary" id="designerRefreshTextBlocksBtn">
+                    <i data-lucide="list-tree"></i>
+                    刷新文字塊
+                  </button>
+                  <button type="button" class="icon-button secondary" id="designerApplyTextStyleAllBtn">
+                    <i data-lucide="case-sensitive"></i>
+                    批量套用字體
+                  </button>
+                  <button type="button" class="icon-button secondary" id="designerNormalizeAllTextBtn">
+                    <i data-lucide="sparkles"></i>
+                    清理整封字體
+                  </button>
+                </div>
+                <div id="designerTextBlockList" class="designer-text-block-list"></div>
               </section>
 
               <section class="work-card designer-editor-card">
                 <div class="card-title">
                   <h2>拖拽式圖文編輯器</h2>
-                  <span>GrapesJS + Newsletter preset</span>
+                  <div class="designer-editor-title-actions">
+                    <span>GrapesJS + Newsletter preset</span>
+                    <button type="button" class="icon-button secondary" id="designerFocusEditorBtn">
+                      <i data-lucide="maximize-2"></i>
+                      專注編輯
+                    </button>
+                  </div>
                 </div>
                 <div class="designer-toolbar-note">
                   支援圖片拖拽上傳；發送 Marketing 郵件時，後端仍會自動追加公司地址與退訂鏈接。
