@@ -102,6 +102,7 @@
     editor: null,
     initialized: false,
     assets: [],
+    selectedTextComponent: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -1702,6 +1703,84 @@
     if (next.length) designerState.editor.AssetManager.add(next);
   }
 
+  function selectedDesignerComponent() {
+    return designerState.editor?.getSelected?.() || null;
+  }
+
+  function selectedDesignerTextComponent() {
+    const component = selectedDesignerComponent();
+    if (!component) return null;
+    const tagName = String(component.get?.("tagName") || "").toLowerCase();
+    const type = String(component.get?.("type") || "").toLowerCase();
+    if (["text", "textnode"].includes(type)) return component;
+    if (["p", "div", "span", "td", "th", "h1", "h2", "h3", "h4", "li", "a", "strong"].includes(tagName)) return component;
+    const html = component.toHTML?.() || "";
+    const text = htmlToText(html);
+    return text ? component : null;
+  }
+
+  function plainTextFromDesignerComponent(component) {
+    if (!component) return "";
+    const content = component.get?.("content");
+    if (content) return htmlToText(content);
+    return htmlToText(component.toHTML?.() || "");
+  }
+
+  function stableParagraphHtml(text = "") {
+    const paragraphs = String(text || "")
+      .replace(/\r\n/g, "\n")
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+    if (!paragraphs.length) return "<p><br></p>";
+    return paragraphs
+      .map((paragraph) => `<p style="margin:0 0 12px;">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+      .join("");
+  }
+
+  function textStyleFromDesignerFields() {
+    return {
+      "font-family": $("designerTextFontField")?.value || "Arial, Helvetica, sans-serif",
+      "font-size": $("designerTextSizeField")?.value || "16px",
+      "line-height": $("designerTextLineHeightField")?.value || "1.7",
+      color: $("designerTextColorField")?.value || "#344054",
+    };
+  }
+
+  function updateDesignerTextPanel(component = selectedDesignerTextComponent()) {
+    designerState.selectedTextComponent = component || null;
+    if (!component) {
+      $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
+      return;
+    }
+    const style = component.getStyle?.() || {};
+    if (style["font-family"]) $("designerTextFontField").value = style["font-family"];
+    if (style["font-size"]) $("designerTextSizeField").value = style["font-size"];
+    if (style["line-height"]) $("designerTextLineHeightField").value = style["line-height"];
+    if (/^#[0-9a-f]{6}$/i.test(style.color || "")) $("designerTextColorField").value = style.color;
+    $("designerTextContentField").value = plainTextFromDesignerComponent(component);
+    const tagName = component.get?.("tagName") || component.get?.("type") || "區塊";
+    $("designerTextStatus").textContent = `已選中：${tagName}`;
+  }
+
+  function applyDesignerStableText({ normalizeOnly = false } = {}) {
+    const component = designerState.selectedTextComponent || selectedDesignerTextComponent();
+    if (!component) {
+      setToast("請先在畫布中選中文字區塊");
+      return;
+    }
+    const text = normalizeOnly ? plainTextFromDesignerComponent(component) : $("designerTextContentField").value;
+    component.components(stableParagraphHtml(text));
+    component.setStyle({
+      ...(component.getStyle?.() || {}),
+      ...textStyleFromDesignerFields(),
+    });
+    designerState.selectedTextComponent = component;
+    updateDesignerTextPanel(component);
+    refreshEmailDesignerLayout();
+    setToast(normalizeOnly ? "已清理選中區塊樣式" : "文字已穩定套用");
+  }
+
   async function loadDesignerAssets({ silent = false } = {}) {
     if (!silent) $("designerAssetStatus").textContent = "正在載入素材...";
     const payload = await apiRequest("/api/admin/email-assets");
@@ -1773,6 +1852,11 @@
       },
     });
     addDesignerBlocks(designerState.editor);
+    designerState.editor.on("component:selected", () => updateDesignerTextPanel());
+    designerState.editor.on("component:deselected", () => {
+      designerState.selectedTextComponent = null;
+      $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
+    });
     designerState.editor.setComponents(designerStarterHtml());
     designerState.initialized = true;
     $("designerStatus").textContent = "設計器已就緒";
@@ -3960,6 +4044,19 @@
       }
       const remove = event.target.closest("[data-delete-designer-asset]");
       if (remove) runAsync(() => deleteDesignerAsset(remove.dataset.deleteDesignerAsset));
+    });
+    $("designerLoadTextBtn").addEventListener("click", () => updateDesignerTextPanel());
+    $("designerNormalizeTextBtn").addEventListener("click", () => applyDesignerStableText({ normalizeOnly: true }));
+    $("designerApplyTextBtn").addEventListener("click", () => applyDesignerStableText());
+    $("designerTextContentField").addEventListener("paste", (event) => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData("text/plain") || "";
+      const field = event.currentTarget;
+      const start = field.selectionStart ?? field.value.length;
+      const end = field.selectionEnd ?? field.value.length;
+      field.value = `${field.value.slice(0, start)}${text}${field.value.slice(end)}`;
+      const nextPosition = start + text.length;
+      field.setSelectionRange(nextPosition, nextPosition);
     });
     $("designerNewBtn").addEventListener("click", () => runAsync(async () => {
       await initializeEmailDesigner();

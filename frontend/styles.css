@@ -1397,6 +1397,27 @@ textarea:focus {
   min-width: 0;
 }
 
+.designer-text-card {
+  min-width: 0;
+}
+
+.designer-text-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(110px, 0.45fr));
+  margin-bottom: 10px;
+}
+
+.designer-text-controls input,
+.designer-text-controls select {
+  width: 100%;
+}
+
+.designer-textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
 .designer-assets-toolbar {
   align-items: center;
   display: flex;
@@ -1532,28 +1553,6 @@ textarea:focus {
   width: 100%;
 }
 
-.email-designer-editor .gjs-editor,
-.email-designer-editor .gjs-editor-cont {
-  min-width: 980px;
-}
-
-.email-designer-editor .gjs-pn-panels {
-  min-width: 980px;
-}
-
-.email-designer-editor .gjs-cv-canvas {
-  width: calc(100% - 260px);
-}
-
-.email-designer-editor .gjs-pn-views-container,
-.email-designer-editor .gjs-pn-views {
-  width: 260px;
-}
-
-.email-designer-editor .gjs-pn-options {
-  right: 260px;
-}
-
 .designer-editor-card .card-title {
   align-items: center;
 }
@@ -1624,6 +1623,10 @@ textarea:focus {
     grid-column: span 2;
   }
 
+  .designer-text-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .email-designer-editor {
     height: 760px;
   }
@@ -1684,6 +1687,10 @@ textarea:focus {
 
   .designer-token-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .designer-text-controls {
+    grid-template-columns: 1fr;
   }
 
   .email-designer-editor {

@@ -403,6 +403,59 @@
                 <div id="designerAssetLibrary" class="designer-asset-library"></div>
               </section>
 
+              <section class="work-card designer-text-card">
+                <div class="card-title">
+                  <h2>穩定文字編輯</h2>
+                  <span id="designerTextStatus">請先在下方畫布選中文字區塊</span>
+                </div>
+                <div class="designer-text-controls">
+                  <label>字體
+                    <select id="designerTextFontField">
+                      <option value="Arial, Helvetica, sans-serif">Arial / Helvetica</option>
+                      <option value="'Noto Sans TC', 'Microsoft JhengHei', Arial, sans-serif">繁中文字體</option>
+                      <option value="Georgia, 'Times New Roman', serif">Serif</option>
+                    </select>
+                  </label>
+                  <label>字號
+                    <select id="designerTextSizeField">
+                      <option value="12px">12px</option>
+                      <option value="14px">14px</option>
+                      <option value="16px" selected>16px</option>
+                      <option value="18px">18px</option>
+                      <option value="22px">22px</option>
+                      <option value="28px">28px</option>
+                      <option value="36px">36px</option>
+                    </select>
+                  </label>
+                  <label>行距
+                    <select id="designerTextLineHeightField">
+                      <option value="1.35">1.35</option>
+                      <option value="1.5">1.5</option>
+                      <option value="1.7" selected>1.7</option>
+                      <option value="2">2</option>
+                    </select>
+                  </label>
+                  <label>文字顏色
+                    <input id="designerTextColorField" type="color" value="#344054" />
+                  </label>
+                </div>
+                <textarea id="designerTextContentField" class="designer-textarea" placeholder="選中文字區塊後，這裡會顯示可穩定編輯的純文字。"></textarea>
+                <div class="drawer-actions">
+                  <button type="button" class="icon-button secondary" id="designerLoadTextBtn">
+                    <i data-lucide="scan-text"></i>
+                    讀取選中
+                  </button>
+                  <button type="button" class="icon-button secondary" id="designerNormalizeTextBtn">
+                    <i data-lucide="wand-2"></i>
+                    清理樣式
+                  </button>
+                  <button type="button" class="icon-button primary" id="designerApplyTextBtn">
+                    <i data-lucide="check"></i>
+                    套用文字
+                  </button>
+                </div>
+              </section>
+
               <section class="work-card designer-editor-card">
                 <div class="card-title">
                   <h2>拖拽式圖文編輯器</h2>
