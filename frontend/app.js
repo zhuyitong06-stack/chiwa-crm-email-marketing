@@ -1597,8 +1597,8 @@
       consent_url: "https://crm.chiwa.ai/consent?token=preview",
       unsubscribeurl: "https://crm.chiwa.ai/unsubscribe?token=preview",
       unsubscribe_url: "https://crm.chiwa.ai/unsubscribe?token=preview",
-      webarchiveurl: "https://chiwa.ai",
-      web_archive_url: "https://chiwa.ai",
+      webarchiveurl: "https://crm.chiwa.ai/archive?token=preview",
+      web_archive_url: "https://crm.chiwa.ai/archive?token=preview",
     };
   }
 
@@ -2800,7 +2800,7 @@
       unsubscribeurl: "https://crm.chiwa.ai/unsubscribe?token=preview",
       consent_url: "https://crm.chiwa.ai/consent?token=preview",
       unsubscribe_url: "https://crm.chiwa.ai/unsubscribe?token=preview",
-      web_archive_url: "https://chiwa.ai",
+      web_archive_url: "https://crm.chiwa.ai/archive?token=preview",
     };
     const render = (value) =>
       String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key) => {

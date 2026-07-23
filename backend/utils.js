@@ -126,6 +126,17 @@ export function createConsentToken(contactId, ttlDays = 3650) {
   return createContactActionToken(contactId, "consent", ttlDays);
 }
 
+export function createEmailArchiveToken(messageId, contactId, ttlDays = 3650) {
+  const payload = {
+    messageId,
+    contactId,
+    action: "archive",
+    exp: Math.floor(Date.now() / 1000) + ttlDays * 24 * 60 * 60,
+  };
+  const encodedPayload = base64UrlJson(payload);
+  return `${encodedPayload}.${signTokenPayload(encodedPayload)}`;
+}
+
 export function verifyContactActionToken(token, expectedAction = "") {
   const [encodedPayload, signature] = String(token || "").split(".");
   if (!encodedPayload || !signature) throw publicError("Invalid token", 400);
@@ -161,4 +172,10 @@ export function verifyUnsubscribeToken(token) {
 
 export function verifyConsentToken(token) {
   return verifyContactActionToken(token, "consent");
+}
+
+export function verifyEmailArchiveToken(token) {
+  const payload = verifyContactActionToken(token, "archive");
+  if (!payload.messageId) throw publicError("Invalid archive token", 400);
+  return payload;
 }

@@ -8,7 +8,7 @@ import {
   updateContactEmailState,
 } from "../db.js";
 import { fromAddressForPurpose, sendEmail } from "../resend.js";
-import { createConsentToken, createUnsubscribeToken, escapeHtml, nowIso, parseEmailAddressList, publicError } from "../utils.js";
+import { createConsentToken, createEmailArchiveToken, createUnsubscribeToken, escapeHtml, makeId, nowIso, parseEmailAddressList, publicError } from "../utils.js";
 
 const router = express.Router();
 
@@ -38,6 +38,13 @@ function buildConsentUrl(contactId) {
   return url.toString();
 }
 
+function buildArchiveUrl(messageId, contactId) {
+  if (!process.env.SITE_URL) throw publicError("SITE_URL is not configured", 500);
+  const url = new URL("/archive", process.env.SITE_URL);
+  url.searchParams.set("token", createEmailArchiveToken(messageId, contactId));
+  return url.toString();
+}
+
 function contactDisplayName(contact) {
   return [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim();
 }
@@ -50,10 +57,10 @@ function renderTemplateVariables(value = "", variables = {}) {
   });
 }
 
-function templateVariablesForContact(contact) {
+function templateVariablesForContact(contact, { messageId = "" } = {}) {
   const consentUrl = buildConsentUrl(contact.id);
   const unsubscribeUrl = buildUnsubscribeUrl(contact.id);
-  const webArchiveUrl = process.env.PUBLIC_WEBSITE_URL || "https://chiwa.ai";
+  const webArchiveUrl = messageId ? buildArchiveUrl(messageId, contact.id) : process.env.SITE_URL || "https://crm.chiwa.ai";
   const contactName = contactDisplayName(contact);
   return {
     consenturl: consentUrl,
@@ -105,7 +112,8 @@ router.post("/contacts/:contactId/emails/send", async (req, res, next) => {
     if (isTest && !testRecipients.length) throw publicError("testRecipient must include at least one valid email", 400);
     if (!isTest) assertCanSend(contact, purpose);
 
-    const variables = templateVariablesForContact(contact);
+    const messageId = makeId("msg");
+    const variables = templateVariablesForContact(contact, { messageId });
     const subject = renderTemplateVariables(String(req.body.subject || "").trim(), variables);
     const htmlContent = renderTemplateVariables(String(req.body.htmlContent || "").trim(), variables);
     const textContent = renderTemplateVariables(String(req.body.textContent || "").trim(), variables);
@@ -156,6 +164,7 @@ router.post("/contacts/:contactId/emails/send", async (req, res, next) => {
     });
 
     const message = createEmailMessage({
+      id: messageId,
       threadId: thread.id,
       contactId: contact.id,
       direction: "outbound",

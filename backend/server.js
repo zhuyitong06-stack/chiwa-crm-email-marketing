@@ -14,6 +14,7 @@ import analyticsRouter from "./routes/analytics.js";
 import uploadsRouter from "./routes/uploads.js";
 import webhooksRouter from "./routes/webhooks.js";
 import unsubscribeRouter from "./routes/unsubscribe.js";
+import archiveRouter from "./routes/archive.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +57,7 @@ app.use((req, res, next) => {
 
 app.use("/api/resend", webhooksRouter);
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "8mb" }));
 app.use(
   "/api",
   rateLimit({
@@ -72,6 +73,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use(unsubscribeRouter);
+app.use(archiveRouter);
 
 app.use("/api/admin", contactsRouter);
 app.use("/api/admin", emailsRouter);

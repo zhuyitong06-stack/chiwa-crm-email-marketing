@@ -14,7 +14,7 @@ import {
   updateContactEmailState,
 } from "../db.js";
 import { fromAddressForPurpose, sendEmail } from "../resend.js";
-import { createConsentToken, createUnsubscribeToken, escapeHtml, nowIso, parseEmailAddressList, publicError } from "../utils.js";
+import { createConsentToken, createEmailArchiveToken, createUnsubscribeToken, escapeHtml, makeId, nowIso, parseEmailAddressList, publicError } from "../utils.js";
 
 const router = express.Router();
 
@@ -61,9 +61,11 @@ function audiencePayload(campaign) {
   };
 }
 
-function variablesForContact(contact) {
+function variablesForContact(contact, { messageId = "" } = {}) {
   const siteUrl = process.env.SITE_URL || "https://crm.chiwa.ai";
-  const webArchiveUrl = process.env.PUBLIC_WEBSITE_URL || "https://chiwa.ai";
+  const webArchiveUrl = messageId
+    ? new URL(`/archive?token=${createEmailArchiveToken(messageId, contact.id)}`, siteUrl).toString()
+    : siteUrl;
   const consentUrl = new URL("/consent", siteUrl);
   consentUrl.searchParams.set("token", createConsentToken(contact.id));
   const unsubscribeUrl = new URL("/unsubscribe", siteUrl);
@@ -119,7 +121,8 @@ router.get("/campaigns/:campaignId/report", (req, res, next) => {
 });
 
 async function sendCampaignMessage({ campaign, contact, testRecipients = [] }) {
-  const variables = variablesForContact(contact);
+  const messageId = makeId("msg");
+  const variables = variablesForContact(contact, { messageId });
   const subject = renderVariables(campaign.subject, variables);
   const text = renderVariables(campaign.textContent || "", variables);
   const htmlBase = campaign.htmlContent || `<p>${escapeHtml(text).replaceAll("\n", "<br>")}</p>`;
@@ -150,6 +153,7 @@ async function sendCampaignMessage({ campaign, contact, testRecipients = [] }) {
     ],
   });
   const message = createEmailMessage({
+    id: messageId,
     threadId: thread.id,
     contactId: contact.id,
     direction: "outbound",

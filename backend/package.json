@@ -10,7 +10,7 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "start": "node --env-file-if-exists=.env server.js",
     "start:prod": "NODE_ENV=production node --env-file-if-exists=.env server.js",
-    "check": "node --check server.js && node --check db.js && node --check resend.js && node --check auth.js && node --check utils.js && node --check routes/contacts.js && node --check routes/emails.js && node --check routes/campaigns.js && node --check routes/inbox.js && node --check routes/templates.js && node --check routes/uploads.js && node --check routes/webhooks.js && node --check routes/unsubscribe.js && node --check scripts/check-production.js",
+    "check": "node --check server.js && node --check db.js && node --check resend.js && node --check auth.js && node --check utils.js && node --check routes/contacts.js && node --check routes/emails.js && node --check routes/campaigns.js && node --check routes/inbox.js && node --check routes/templates.js && node --check routes/uploads.js && node --check routes/webhooks.js && node --check routes/unsubscribe.js && node --check routes/archive.js && node --check scripts/check-production.js",
     "check:production": "NODE_ENV=production node --env-file-if-exists=.env scripts/check-production.js"
   },
   "dependencies": {

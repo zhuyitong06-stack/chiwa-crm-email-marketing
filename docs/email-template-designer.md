@@ -38,6 +38,43 @@ Both camelCase and snake_case placeholders are supported:
 
 For Marketing emails, the backend still appends the company postal address and unsubscribe footer during sending.
 
+## Web Archive Links
+
+`{{web_archive_url}}` is now generated at send time.
+
+When a one-to-one email or Campaign email is sent, the backend creates a signed archive token and renders:
+
+```text
+https://crm.chiwa.ai/archive?token=...
+```
+
+The public archive page verifies the token and displays the exact HTML stored for that sent email. This means the "查看網頁版" link should point to the sent email's web version, not the company website.
+
+Preview mode still uses:
+
+```text
+https://crm.chiwa.ai/archive?token=preview
+```
+
+That preview URL is only a placeholder; real links are created during sending.
+
+## Editor Engine Direction
+
+The current production editor remains GrapesJS because the CRM frontend is a static browser app.
+
+`zalify/easy-email-editor` is the recommended replacement direction, but it is a React + MJML editor, not a drop-in browser SDK. A safe migration should add a React build pipeline and run the new editor beside the current template API first.
+
+Recommended migration steps:
+
+1. Add a React/Vite editor bundle under `frontend/editor/`.
+2. Install Easy Email packages in that bundle.
+3. Save Easy Email JSON/MJML into `email_templates.variables.easyEmail`.
+4. Continue saving rendered HTML into `email_templates.htmlTemplate`.
+5. Keep the existing Resend send APIs unchanged.
+6. After visual QA and test sends pass, hide the GrapesJS page.
+
+This lets the editor be replaced without touching Inbox, Resend webhooks, Campaign sending, unsubscribe, or customer email timelines.
+
 ## CDN / OSS Upgrade Point
 
 The current upload route stores images on the CRM server under `backend/data/uploads/email-assets`.

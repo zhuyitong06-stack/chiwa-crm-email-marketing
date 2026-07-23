@@ -488,6 +488,10 @@ export function listMessagesForContact(contactId) {
   return db.prepare("SELECT * FROM email_messages WHERE contactId = ? ORDER BY createdAt DESC").all(contactId);
 }
 
+export function findEmailMessageById(id) {
+  return db.prepare("SELECT * FROM email_messages WHERE id = ?").get(id) || null;
+}
+
 export function listInboxMessages({ search = "", status = "", read = "", assignedTo = "", limit = 50, offset = 0 } = {}) {
   const query = `%${String(search).trim().toLowerCase()}%`;
   const normalizedStatus = String(status || "").trim().toLowerCase();
