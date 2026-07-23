@@ -6,7 +6,7 @@
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./vendor/grapes.min.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260723-editorfix" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
   <script>var self = window; window.self = window.self || window;</script>
@@ -403,6 +403,24 @@
                 <div id="designerAssetLibrary" class="designer-asset-library"></div>
               </section>
 
+              <section class="work-card designer-component-card">
+                <div class="card-title">
+                  <h2>快速組件與導航</h2>
+                  <span id="designerComponentStatus">等待掃描</span>
+                </div>
+                <div class="designer-quick-blocks" id="designerQuickBlocks">
+                  <button type="button" data-designer-quick-block="headline">標題</button>
+                  <button type="button" data-designer-quick-block="paragraph">正文</button>
+                  <button type="button" data-designer-quick-block="image">圖片</button>
+                  <button type="button" data-designer-quick-block="button">按鈕</button>
+                  <button type="button" data-designer-quick-block="divider">分隔線</button>
+                  <button type="button" data-designer-quick-block="postsage">PostSage CTA</button>
+                  <button type="button" data-designer-quick-block="signature">簽名</button>
+                </div>
+                <input id="designerComponentSearchField" class="designer-component-search" placeholder="搜尋 button / image / link / heading / 英文或中文內容" />
+                <div id="designerComponentList" class="designer-component-list"></div>
+              </section>
+
               <section class="work-card designer-text-card">
                 <div class="card-title">
                   <h2>穩定文字編輯</h2>
@@ -469,6 +487,14 @@
                   </button>
                 </div>
                 <div id="designerTextBlockList" class="designer-text-block-list"></div>
+                <label class="designer-save-option">
+                  <input id="designerLockEmailFontField" type="checkbox" checked />
+                  保存時統一為郵件安全字體，避免手機與電腦字體/字號跳動
+                </label>
+                <label class="designer-save-option">
+                  <input id="designerNormalizeImagesField" type="checkbox" checked />
+                  保存時自動修正圖片寬度，並把過長 base64 圖片轉成素材庫 URL
+                </label>
               </section>
 
               <section class="work-card designer-editor-card">
@@ -814,6 +840,6 @@
     </script>
     <script src="./vendor/grapes.min.js"></script>
     <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260723-editorfix"></script>
   </body>
 </html>

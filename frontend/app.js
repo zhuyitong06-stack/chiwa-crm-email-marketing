@@ -104,6 +104,7 @@
     assets: [],
     selectedTextComponent: null,
     textBlocks: [],
+    components: [],
     textBlockRefreshTimer: 0,
     focusMode: false,
   };
@@ -1609,7 +1610,7 @@
     });
   }
 
-  function exportDesignerHtml() {
+  function rawDesignerHtml() {
     const editor = designerState.editor;
     if (!editor) return "";
     try {
@@ -1621,6 +1622,176 @@
     const css = editor.getCss() || "";
     const html = editor.getHtml() || "";
     return ensureDesignerComplianceHtml(`${css ? `<style>${css}</style>` : ""}${html}`);
+  }
+
+  function exportDesignerHtml() {
+    return normalizeDesignerHtmlForPreview(rawDesignerHtml());
+  }
+
+  function normalizeFontSizeValue(value = "") {
+    const normalized = String(value || "").trim().toLowerCase();
+    const map = {
+      "xx-small": "10px",
+      "x-small": "11px",
+      small: "13px",
+      medium: "16px",
+      large: "18px",
+      "x-large": "22px",
+      "xx-large": "28px",
+    };
+    return map[normalized] || value;
+  }
+
+  function parseStyleText(styleText = "") {
+    const style = {};
+    String(styleText || "")
+      .split(";")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => {
+        const separator = item.indexOf(":");
+        if (separator <= 0) return;
+        const prop = item.slice(0, separator).trim().toLowerCase();
+        const value = item.slice(separator + 1).trim();
+        if (prop && value) style[prop] = value;
+      });
+    return style;
+  }
+
+  function styleObjectToText(style = {}) {
+    return Object.entries(style)
+      .filter(([, value]) => String(value || "").trim())
+      .map(([prop, value]) => `${prop}:${String(value).trim()}`)
+      .join(";");
+  }
+
+  function normalizeDesignerHtmlForPreview(html = "") {
+    const container = document.createElement("div");
+    container.innerHTML = String(html || "");
+    container.querySelectorAll("img").forEach((image) => {
+      const style = parseStyleText(image.getAttribute("style") || "");
+      image.setAttribute("style", styleObjectToText({
+        ...style,
+        border: style.border || "0",
+        display: style.display || "block",
+        height: "auto",
+        "max-width": "100%",
+      }));
+      if (!image.getAttribute("alt")) image.setAttribute("alt", "Email image");
+    });
+    return container.innerHTML;
+  }
+
+  async function dataUrlToDesignerAsset(dataUrl, index) {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const extension = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : blob.type.includes("gif") ? "gif" : "jpg";
+    const file = new File([blob], `email-template-image-${Date.now()}-${index}.${extension}`, { type: blob.type || "image/jpeg" });
+    const assets = await uploadEmailDesignerAssets([file]);
+    return assets[0]?.src || "";
+  }
+
+  function replaceStringsInDesignerProject(value, replacements) {
+    if (!replacements.size) return value;
+    if (typeof value === "string") {
+      let output = value;
+      replacements.forEach((next, previous) => {
+        if (output.includes(previous)) output = output.replaceAll(previous, next);
+      });
+      return output;
+    }
+    if (Array.isArray(value)) return value.map((item) => replaceStringsInDesignerProject(item, replacements));
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, next]) => [key, replaceStringsInDesignerProject(next, replacements)]));
+    }
+    return value;
+  }
+
+  async function normalizeDesignerHtmlForEmail(html = "") {
+    const lockFont = $("designerLockEmailFontField")?.checked !== false;
+    const normalizeImages = $("designerNormalizeImagesField")?.checked !== false;
+    const safeFont = "Arial, 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif";
+    const allowedStyleProps = new Set([
+      "background",
+      "background-color",
+      "border",
+      "border-radius",
+      "color",
+      "display",
+      "font-family",
+      "font-size",
+      "font-style",
+      "font-weight",
+      "height",
+      "line-height",
+      "margin",
+      "margin-bottom",
+      "margin-left",
+      "margin-right",
+      "margin-top",
+      "max-width",
+      "padding",
+      "padding-bottom",
+      "padding-left",
+      "padding-right",
+      "padding-top",
+      "text-align",
+      "text-decoration",
+      "vertical-align",
+      "width",
+    ]);
+    const textTags = "body,table,tbody,tr,td,th,p,a,span,li,strong,em,div,h1,h2,h3,h4";
+    const container = document.createElement("div");
+    container.innerHTML = String(html || "");
+    const imageReplacements = new Map();
+
+    container.querySelectorAll("*").forEach((element) => {
+      [...element.attributes].forEach((attr) => {
+        if (/^on/i.test(attr.name)) element.removeAttribute(attr.name);
+        if (["class", "id", "data-gjs-type", "data-highlightable"].includes(attr.name) && attr.value.length > 90) element.removeAttribute(attr.name);
+      });
+      const existing = parseStyleText(element.getAttribute("style") || "");
+      const nextStyle = {};
+      Object.entries(existing).forEach(([prop, value]) => {
+        if (!allowedStyleProps.has(prop)) return;
+        nextStyle[prop] = prop === "font-size" ? normalizeFontSizeValue(value) : value;
+      });
+      if (lockFont && element.matches(textTags)) {
+        nextStyle["font-family"] = safeFont;
+        nextStyle["-webkit-text-size-adjust"] = "100%";
+        if (!nextStyle["line-height"] && !["table", "tbody", "tr"].includes(element.tagName.toLowerCase())) nextStyle["line-height"] = "1.5";
+        if (!nextStyle["font-size"] && ["p", "a", "span", "li", "strong", "em", "div", "td", "th"].includes(element.tagName.toLowerCase())) nextStyle["font-size"] = "16px";
+      }
+      if (element.tagName.toLowerCase() === "img" && normalizeImages) {
+        nextStyle.border = nextStyle.border || "0";
+        nextStyle.display = nextStyle.display || "block";
+        nextStyle.height = "auto";
+        nextStyle["max-width"] = "100%";
+        if (!nextStyle.width || /^(auto|[7-9]\d{2,}px|\d{4,}px)$/i.test(nextStyle.width)) nextStyle.width = "100%";
+        element.removeAttribute("srcset");
+        element.removeAttribute("sizes");
+        if (!element.getAttribute("alt")) element.setAttribute("alt", "Email image");
+      }
+      const styleText = styleObjectToText(nextStyle);
+      if (styleText) element.setAttribute("style", styleText);
+      else element.removeAttribute("style");
+    });
+
+    if (normalizeImages) {
+      const images = [...container.querySelectorAll("img")];
+      for (let index = 0; index < images.length; index += 1) {
+        const image = images[index];
+        const src = image.getAttribute("src") || "";
+        if (!src.startsWith("data:image/")) continue;
+        const nextSrc = await dataUrlToDesignerAsset(src, index);
+        if (nextSrc) {
+          imageReplacements.set(src, nextSrc);
+          image.setAttribute("src", nextSrc);
+        }
+      }
+    }
+
+    return { html: container.innerHTML, imageReplacements };
   }
 
   function addDesignerBlocks(editor) {
@@ -1702,6 +1873,32 @@
     if (next.length) designerState.editor.AssetManager.add(next);
   }
 
+  function quickDesignerBlockHtml(type) {
+    const safeFont = "Arial, 'Microsoft JhengHei', 'PingFang TC', sans-serif";
+    const imagePlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='240' viewBox='0 0 600 240'%3E%3Crect width='600' height='240' fill='%23f1f5f9'/%3E%3Crect x='24' y='24' width='552' height='192' rx='12' fill='none' stroke='%2394a3b8' stroke-dasharray='10 8'/%3E%3Ctext x='300' y='116' text-anchor='middle' font-family='Arial, sans-serif' font-size='22' fill='%23475569'%3EUpload or replace image%3C/text%3E%3Ctext x='300' y='150' text-anchor='middle' font-family='Arial, sans-serif' font-size='16' fill='%2364748b'%3E600 x 240 email-safe image%3C/text%3E%3C/svg%3E";
+    const blocks = {
+      headline: `<h2 style="font-family:${safeFont};font-size:24px;line-height:1.35;color:#111827;margin:0 0 12px;">請輸入標題</h2>`,
+      paragraph: `<p style="font-family:${safeFont};font-size:16px;line-height:1.7;color:#344054;margin:0 0 16px;">請輸入正文內容，可加入 {{contactName}} 或 {{company}}。</p>`,
+      image: `<img src="${imagePlaceholder}" alt="請從素材庫替換圖片" style="border:0;display:block;height:auto;max-width:100%;width:100%;">`,
+      button: `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td bgcolor="#0f766e" style="border-radius:6px;"><a href="https://chiwa.ai" target="_blank" style="color:#ffffff;display:inline-block;font-family:${safeFont};font-size:16px;font-weight:bold;line-height:1.2;padding:13px 22px;text-decoration:none;">輸入按鈕文字</a></td></tr></table>`,
+      divider: `<hr style="border:0;border-top:1px solid #e5eaf2;margin:24px 0;">`,
+      postsage: `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td bgcolor="#eb6a3e" style="border-radius:6px;"><a href="https://postsage.ai/r/KEz9YGV6yhJHJgzB" target="_blank" style="color:#ffffff;display:inline-block;font-family:${safeFont};font-size:16px;font-weight:bold;line-height:1.2;padding:13px 22px;text-decoration:none;">了解 PostSage</a></td></tr></table>`,
+      signature: `<div style="font-family:${safeFont};color:#344054;font-size:14px;line-height:1.6;margin-top:24px;">Best regards,<br>Chiwa AI Insights<br><a href="https://chiwa.ai" style="color:#0f766e;text-decoration:underline;">https://chiwa.ai</a></div>`,
+    };
+    return blocks[type] || blocks.paragraph;
+  }
+
+  function addDesignerQuickBlock(type) {
+    if (!designerState.editor) return;
+    const component = designerState.editor.addComponents(quickDesignerBlockHtml(type));
+    const added = Array.isArray(component) ? component[0] : component;
+    if (added) designerState.editor.select(added);
+    $("designerStatus").textContent = "已添加組件";
+    refreshDesignerTextBlocks({ silent: true });
+    refreshDesignerComponents({ silent: true });
+    refreshEmailDesignerLayout();
+  }
+
   function selectedDesignerComponent() {
     return designerState.editor?.getSelected?.() || null;
   }
@@ -1745,6 +1942,101 @@
     designerComponentChildren(component).forEach((child) => walkDesignerComponents(child, visitor));
   }
 
+  function designerComponentKind(component) {
+    const tagName = designerComponentTag(component);
+    const type = String(component?.get?.("type") || "").toLowerCase();
+    const html = component?.toHTML?.() || "";
+    const looksLikeButton =
+      (tagName === "a" || type === "link") &&
+      /<a\b/i.test(html) &&
+      /(display\s*:\s*inline-block|border-radius|padding\s*:|bgcolor=|了解|輸入按鈕|button|cta)/i.test(html);
+    if (tagName === "img" || type === "image") return "image";
+    if (looksLikeButton) return "button";
+    if (tagName === "a" || type === "link") return "link";
+    if (/^h[1-4]$/.test(tagName)) return "heading";
+    if (["p", "span", "li", "strong", "em"].includes(tagName) || ["text", "textnode"].includes(type)) return "text";
+    if (tagName === "table") return "table";
+    if (tagName === "tr") return "row";
+    if (["td", "th"].includes(tagName)) return "cell";
+    return tagName || type || "component";
+  }
+
+  function designerComponentPreview(component) {
+    const kind = designerComponentKind(component);
+    if (kind === "image") {
+      const attrs = component.getAttributes?.() || {};
+      return attrs.alt || attrs.src || "圖片";
+    }
+    return plainTextFromDesignerComponent(component) || component.getAttributes?.().href || component.getAttributes?.().src || component.toHTML?.().slice(0, 80) || kind;
+  }
+
+  function collectDesignerComponents() {
+    if (!designerState.editor) return [];
+    const wrapper = designerState.editor.DomComponents.getWrapper();
+    const items = [];
+    walkDesignerComponents(wrapper, (component) => {
+      if (component === wrapper) return;
+      const cid = component.cid || component.getId?.() || "";
+      if (!cid) return;
+      const kind = designerComponentKind(component);
+      if (!["button", "image", "link", "heading", "text", "table", "cell"].includes(kind)) return;
+      const preview = designerComponentPreview(component);
+      items.push({ cid, component, kind, preview });
+    });
+    designerState.components = items;
+    return items;
+  }
+
+  function renderDesignerComponentList() {
+    const container = $("designerComponentList");
+    if (!container) return;
+    const search = normalizeText($("designerComponentSearchField")?.value || "").toLowerCase();
+    const selectedCid = selectedDesignerComponent()?.cid || "";
+    const items = (designerState.components || []).filter((item) => {
+      const haystack = `${item.kind} ${item.preview}`.toLowerCase();
+      return !search || haystack.includes(search);
+    });
+    $("designerComponentStatus").textContent = items.length ? `${items.length} 個可定位組件` : "未找到組件";
+    container.innerHTML =
+      items
+        .slice(0, 80)
+        .map(
+          (item, index) => `
+            <button type="button" class="designer-component-item${item.cid === selectedCid ? " active" : ""}" data-designer-component="${escapeHtml(item.cid)}">
+              <span>${index + 1}. ${escapeHtml(item.kind)}</span>
+              <strong>${escapeHtml(item.preview.slice(0, 110) || "空組件")}</strong>
+            </button>
+          `,
+        )
+        .join("") || `<div class="mail-empty">沒有符合搜尋的組件。</div>`;
+  }
+
+  function refreshDesignerComponents({ silent = false } = {}) {
+    const items = collectDesignerComponents();
+    renderDesignerComponentList();
+    if (!silent && $("designerComponentStatus")) $("designerComponentStatus").textContent = `${items.length} 個可定位組件`;
+    return items;
+  }
+
+  function findDesignerComponent(cid) {
+    if (!cid) return null;
+    return (designerState.components || []).find((item) => item.cid === cid)?.component || collectDesignerComponents().find((item) => item.cid === cid)?.component || null;
+  }
+
+  function selectDesignerComponentById(cid) {
+    const component = findDesignerComponent(cid);
+    if (!component || !designerState.editor) return;
+    designerState.editor.select(component);
+    if (isDesignerTextLikeComponent(component)) updateDesignerTextPanel(component);
+    else updateDesignerTextPanel(selectedDesignerTextComponent());
+    renderDesignerComponentList();
+    try {
+      component.view?.el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    } catch {
+      // Best-effort inside the GrapesJS iframe.
+    }
+  }
+
   function collectDesignerTextBlocks() {
     if (!designerState.editor) return [];
     const wrapper = designerState.editor.DomComponents.getWrapper();
@@ -1784,6 +2076,7 @@
   function refreshDesignerTextBlocks({ silent = false } = {}) {
     const blocks = collectDesignerTextBlocks();
     renderDesignerTextBlockList();
+    refreshDesignerComponents({ silent: true });
     if (!silent && $("designerTextStatus")) {
       $("designerTextStatus").textContent = blocks.length ? `已掃描 ${blocks.length} 個文字塊` : "尚未找到可編輯文字塊";
     }
@@ -1993,6 +2286,9 @@
       storageManager: false,
       fromElement: false,
       plugins: newsletterPreset ? [newsletterPreset] : [],
+      richTextEditor: {
+        actions: ["bold", "italic", "underline", "strikethrough", "link"],
+      },
       canvas: {
         styles: [],
       },
@@ -2012,11 +2308,15 @@
       },
     });
     addDesignerBlocks(designerState.editor);
-    designerState.editor.on("component:selected", () => updateDesignerTextPanel());
+    designerState.editor.on("component:selected", () => {
+      updateDesignerTextPanel();
+      refreshDesignerComponents({ silent: true });
+    });
     designerState.editor.on("component:deselected", () => {
       designerState.selectedTextComponent = null;
       $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
       renderDesignerTextBlockList();
+      renderDesignerComponentList();
     });
     designerState.editor.on("component:add component:remove component:update", scheduleDesignerTextBlockRefresh);
     designerState.editor.on("rte:enable", () => {
@@ -2131,7 +2431,11 @@
       return;
     }
     await initializeEmailDesigner();
-    const htmlTemplate = exportDesignerHtml();
+    $("designerStatus").textContent = "正在整理模板與圖片...";
+    const rawHtmlTemplate = rawDesignerHtml();
+    const normalized = await normalizeDesignerHtmlForEmail(rawHtmlTemplate);
+    const htmlTemplate = normalized.html;
+    const designerProject = replaceStringsInDesignerProject(designerState.editor.getProjectData(), normalized.imageReplacements);
     const templateId = $("designerTemplateIdField").value;
     const payload = {
       name,
@@ -2146,7 +2450,7 @@
           webArchiveUrl: "{{web_archive_url}}",
           consentUrl: "{{consent_url}}",
         },
-        designerProject: designerState.editor.getProjectData(),
+        designerProject,
       },
     };
     const saved = await apiRequest(templateId ? `/api/admin/templates/${encodeURIComponent(templateId)}` : "/api/admin/templates", {
@@ -4213,6 +4517,15 @@
       }
       const remove = event.target.closest("[data-delete-designer-asset]");
       if (remove) runAsync(() => deleteDesignerAsset(remove.dataset.deleteDesignerAsset));
+    });
+    $("designerQuickBlocks").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-designer-quick-block]");
+      if (button) addDesignerQuickBlock(button.dataset.designerQuickBlock);
+    });
+    $("designerComponentSearchField").addEventListener("input", () => renderDesignerComponentList());
+    $("designerComponentList").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-designer-component]");
+      if (button) selectDesignerComponentById(button.dataset.designerComponent);
     });
     $("designerLoadTextBtn").addEventListener("click", () => updateDesignerTextPanel());
     $("designerNormalizeTextBtn").addEventListener("click", () => applyDesignerStableText({ normalizeOnly: true }));
