@@ -12,66 +12,77 @@ const ADMIN_TOKEN_STORAGE_KEY = "tdc-crm-admin-token-session";
 const API_BASE = String(window.CRM_API_BASE || "").replace(/\/$/, "");
 const PURPOSES = ["marketing", "sales", "support", "transactional"];
 
+function createTextBlock(content, attributes = {}, role = "") {
+  const block = BlockManager.getBlockByType(AdvancedType.TEXT).create({
+    data: { value: { content, chiwaRole: role } },
+    attributes,
+  });
+  return block;
+}
+
+function createImageBlock(src, alt = "郵件圖片") {
+  return BlockManager.getBlockByType(AdvancedType.IMAGE).create({
+    attributes: {
+      src,
+      alt,
+      align: "center",
+      height: "auto",
+      padding: "12px 32px",
+    },
+  });
+}
+
+function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai") {
+  return BlockManager.getBlockByType(AdvancedType.BUTTON).create({
+    data: { value: { content } },
+    attributes: {
+      href,
+      "background-color": "#0f766e",
+      color: "#ffffff",
+      "border-radius": "6px",
+      padding: "16px 32px",
+      "inner-padding": "12px 28px",
+    },
+  });
+}
+
+function createArchiveHeaderBlock() {
+  return createTextBlock(
+    '<p style="text-align:center;"><a href="{{web_archive_url}}">查看網頁版</a></p>',
+    { color: "#0f766e", "font-size": "13px", padding: "16px 24px 8px", align: "center" },
+    "archive_header",
+  );
+}
+
+function createComplianceFooterBlock() {
+  return createTextBlock(
+    '<p style="font-size:12px;color:#667085;">您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br><a href="{{consent_url}}">確認訂閱同意</a> · <a href="{{unsubscribe_url}}">退訂營銷郵件</a></p>',
+    { color: "#667085", "font-size": "12px", padding: "24px 32px" },
+    "compliance_footer",
+  );
+}
+
 function defaultContent() {
   const page = BlockManager.getBlockByType(BasicType.PAGE).create({});
-  page.data.value.attributes = {
-    ...(page.data.value.attributes || {}),
+  page.attributes = {
+    ...(page.attributes || {}),
     "background-color": "#f5f7fb",
     width: "600px",
+  };
+  page.data.value = {
+    ...(page.data.value || {}),
     "font-family": "Arial, Microsoft JhengHei, Microsoft YaHei, sans-serif",
     "font-size": "16px",
     "line-height": "1.6",
   };
   page.children = [
-    BlockManager.getBlockByType(AdvancedType.TEXT).create({
-      data: {
-        value: {
-          content: '<p style="text-align:center;"><a href="{{web_archive_url}}">查看網頁版</a></p>',
-          attributes: { color: "#0f766e", "font-size": "13px", padding: "16px 24px 8px" },
-        },
-      },
-    }),
-    BlockManager.getBlockByType(AdvancedType.TEXT).create({
-      data: {
-        value: {
-          content: "<h1>Chiwa AI 最新方案</h1><p>您好 {{contactName}}，這封郵件可按 {{company}} 的行業、痛點與下一步行動進行個性化調整。</p>",
-          attributes: { color: "#111827", "font-size": "18px", padding: "24px 32px 8px" },
-        },
-      },
-    }),
-    BlockManager.getBlockByType(AdvancedType.IMAGE).create({
-      data: {
-        value: {
-          attributes: {
-            src: "https://crm.chiwa.ai/uploads/email-assets/placeholder.png",
-            alt: "替換為產品、案例或活動圖片",
-            padding: "12px 32px",
-          },
-        },
-      },
-    }),
-    BlockManager.getBlockByType(AdvancedType.BUTTON).create({
-      data: {
-        value: {
-          content: "了解 Chiwa AI",
-          attributes: {
-            href: "https://chiwa.ai",
-            "background-color": "#0f766e",
-            color: "#ffffff",
-            "border-radius": "6px",
-            padding: "16px 32px",
-          },
-        },
-      },
-    }),
-    BlockManager.getBlockByType(AdvancedType.TEXT).create({
-      data: {
-        value: {
-          content: '<p style="font-size:12px;color:#667085;">您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br><a href="{{consent_url}}">確認訂閱同意</a> · <a href="{{unsubscribe_url}}">退訂營銷郵件</a></p>',
-          attributes: { color: "#667085", "font-size": "12px", padding: "24px 32px" },
-        },
-      },
-    }),
+    createArchiveHeaderBlock(),
+    createTextBlock(
+      "<h1>Chiwa AI 最新方案</h1><p>您好 {{contactName}}，這封郵件可按 {{company}} 的行業、痛點與下一步行動進行個性化調整。</p>",
+      { color: "#111827", "font-size": "18px", padding: "24px 32px 8px" },
+    ),
+    createButtonBlock(),
+    createComplianceFooterBlock(),
   ];
   return page;
 }
@@ -116,6 +127,14 @@ function safeJsonParse(value, fallback) {
   }
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function blockRole(block) {
+  return block?.data?.value?.chiwaRole || "";
+}
+
 function App() {
   const [token, setToken] = useState(() => normalizeToken(sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)));
   const [templates, setTemplates] = useState([]);
@@ -127,6 +146,7 @@ function App() {
   const [editorKey, setEditorKey] = useState(0);
   const [editorData, setEditorData] = useState(defaultEmailData);
   const [assetUrl, setAssetUrl] = useState("");
+  const [assets, setAssets] = useState([]);
   const valuesRef = useRef(editorData);
 
   const apiRequest = useCallback(async (path, options = {}) => {
@@ -153,11 +173,17 @@ function App() {
     setStatus(`已載入 ${(payload.templates || []).length} 個模板`);
   }, [apiRequest]);
 
+  const loadAssets = useCallback(async () => {
+    const payload = await apiRequest("/api/admin/email-assets");
+    setAssets(payload.assets || payload.data || []);
+  }, [apiRequest]);
+
   useEffect(() => {
     if (!token) return;
     sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
     loadTemplates().catch((error) => setStatus(error.message));
-  }, [token, loadTemplates]);
+    loadAssets().catch((error) => setStatus(error.message));
+  }, [token, loadTemplates, loadAssets]);
 
   const categories = useMemo(() => [
     {
@@ -218,9 +244,71 @@ function App() {
     [...files].forEach((file) => form.append("files", file));
     setStatus("正在上傳圖片...");
     const payload = await apiRequest("/api/admin/uploads/email-assets", { method: "POST", body: form });
-    const first = payload.assets?.[0] || payload.data?.[0];
+    const uploaded = payload.assets || payload.data || [];
+    const first = uploaded[0];
+    setAssets((current) => [...uploaded, ...current.filter((asset) => !uploaded.some((item) => item.id === asset.id))]);
     setAssetUrl(first?.src || "");
-    setStatus(first?.src ? "圖片已上傳，可複製 URL 到 Image 組件" : "圖片已上傳");
+    if (first?.src) {
+      insertImageAsset(first.src, first.name || "郵件圖片");
+      setStatus("圖片已上傳並插入到郵件畫布");
+    } else {
+      setStatus("圖片已上傳");
+    }
+    event.target.value = "";
+  }
+
+  function updateEditorContent(transform, message) {
+    const current = valuesRef.current || editorData;
+    const nextContent = transform(cloneJson(current.content || defaultContent()));
+    const nextData = { ...current, subject, content: nextContent };
+    valuesRef.current = nextData;
+    setEditorData(nextData);
+    setEditorKey((key) => key + 1);
+    setStatus(message);
+  }
+
+  function insertBeforeFooter(content, block) {
+    const children = Array.isArray(content.children) ? [...content.children] : [];
+    const footerIndex = children.findIndex((item) => blockRole(item) === "compliance_footer");
+    if (footerIndex >= 0) children.splice(footerIndex, 0, block);
+    else children.push(block);
+    return { ...content, children };
+  }
+
+  function insertImageAsset(src, alt = "郵件圖片") {
+    if (!src) return setStatus("請先上傳或選擇圖片素材");
+    updateEditorContent(
+      (content) => insertBeforeFooter(content, createImageBlock(src, alt)),
+      "已插入圖片素材",
+    );
+  }
+
+  function addArchiveHeader() {
+    updateEditorContent((content) => {
+      const children = (content.children || []).filter((item) => blockRole(item) !== "archive_header");
+      return { ...content, children: [createArchiveHeaderBlock(), ...children] };
+    }, "已加入頁頭網頁版連結");
+  }
+
+  function removeArchiveHeader() {
+    updateEditorContent((content) => ({
+      ...content,
+      children: (content.children || []).filter((item) => blockRole(item) !== "archive_header"),
+    }), "已刪除頁頭網頁版連結");
+  }
+
+  function addComplianceFooter() {
+    updateEditorContent((content) => {
+      const children = (content.children || []).filter((item) => blockRole(item) !== "compliance_footer");
+      return { ...content, children: [...children, createComplianceFooterBlock()] };
+    }, "已加入末尾合規組件");
+  }
+
+  function removeComplianceFooter() {
+    updateEditorContent((content) => ({
+      ...content,
+      children: (content.children || []).filter((item) => blockRole(item) !== "compliance_footer"),
+    }), "已刪除末尾合規組件；保存時仍會自動補退訂連結");
   }
 
   async function saveTemplate() {
@@ -311,8 +399,29 @@ function App() {
         <code>{'{{company}}'}</code>
       </section>
 
+      <section className="easy-controls">
+        <div className="easy-control-group">
+          <strong>快速組件</strong>
+          <button type="button" onClick={addArchiveHeader}>加入開頭：查看網頁版</button>
+          <button type="button" onClick={removeArchiveHeader}>刪除開頭</button>
+          <button type="button" onClick={addComplianceFooter}>加入末尾：合規退訂</button>
+          <button type="button" onClick={removeComplianceFooter}>刪除末尾</button>
+        </div>
+        <div className="easy-control-group easy-asset-strip">
+          <strong>素材庫</strong>
+          <button type="button" onClick={() => loadAssets().catch((error) => setStatus(error.message))}>刷新素材</button>
+          {assets.slice(0, 8).map((asset) => (
+            <button type="button" className="asset-chip" key={asset.id || asset.src} onClick={() => insertImageAsset(asset.src, asset.name)}>
+              <img src={asset.src} alt={asset.name || "asset"} />
+              <span>插入</span>
+            </button>
+          ))}
+          {!assets.length && <em>暫無素材，先上傳圖片</em>}
+        </div>
+      </section>
+
       <section className="easy-editor">
-        <EmailEditorProvider key={editorKey} data={editorData} height="calc(100vh - 250px)" autoComplete dashed={false}>
+        <EmailEditorProvider key={editorKey} data={editorData} height="calc(100vh - 330px)" autoComplete dashed={false}>
           {(formState) => {
             valuesRef.current = formState.values;
             return (

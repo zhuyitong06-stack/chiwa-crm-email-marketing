@@ -91,6 +91,25 @@ The new editor saves:
 
 The send flow remains unchanged: one-to-one email and Campaign still use `htmlTemplate`, so Resend, Inbox, tracking, unsubscribe, and customer timelines are not touched.
 
+## Easy Email Image Workflow
+
+The Easy Email page now includes a CRM-backed asset strip:
+
+1. Upload an image from the top toolbar.
+2. The browser sends it to `POST /api/admin/uploads/email-assets`.
+3. The backend stores it under `backend/data/uploads/email-assets`.
+4. The returned public URL is inserted into a real Easy Email image block.
+5. Saving the template exports MJML and HTML containing the image URL.
+
+This fixes the earlier issue where upload only copied a URL into a text field but did not place the image into the email JSON. The image must be inserted into the Easy Email block tree so it appears in the visual canvas and exported HTML.
+
+The page also includes explicit controls for:
+
+- adding or deleting the opening "查看網頁版" component
+- adding or deleting the closing compliance component
+- refreshing existing uploaded assets
+- inserting uploaded assets into the email body
+
 Next migration steps:
 
 1. Create several production Easy Email templates.

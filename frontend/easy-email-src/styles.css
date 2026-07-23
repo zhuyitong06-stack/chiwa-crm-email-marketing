@@ -67,7 +67,7 @@ select {
 
 .easy-meta {
   display: grid;
-  grid-template-columns: 1.3fr 1.2fr 1.2fr 0.7fr 1.6fr 1fr 1.4fr;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(170px, 1fr) minmax(110px, 0.6fr) minmax(220px, 1.3fr) minmax(160px, 0.9fr) minmax(220px, 1.2fr);
   gap: 10px;
   padding: 12px 20px;
   background: #ffffff;
@@ -120,7 +120,69 @@ select {
 
 .easy-editor {
   flex: 1;
-  min-height: 520px;
+  min-height: 500px;
+  background: #eef2f7;
+}
+
+.easy-controls {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.4fr);
+  gap: 12px;
+  padding: 10px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #dbe4ef;
+}
+
+.easy-control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.easy-control-group strong {
+  color: #334155;
+  margin-right: 2px;
+}
+
+.easy-control-group button {
+  min-height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.easy-control-group button:hover {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+.easy-asset-strip {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+}
+
+.easy-asset-strip em {
+  color: #64748b;
+}
+
+.asset-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.asset-chip img {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: cover;
   background: #eef2f7;
 }
 
@@ -157,5 +219,9 @@ select {
 @media (max-width: 1200px) {
   .easy-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .easy-controls {
+    grid-template-columns: 1fr;
   }
 }
