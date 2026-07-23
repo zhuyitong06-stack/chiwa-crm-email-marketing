@@ -3,16 +3,22 @@
 ## Current Implementation
 
 - Frontend entry: `frontend/index.html`
+- Easy Email editor entry: `frontend/easy-email.html`
 - Designer logic: `frontend/app.js`
+- Easy Email source: `frontend/easy-email-src/main.jsx`
 - Designer styles: `frontend/styles.css`
 - Vendor files:
   - `frontend/vendor/grapes.min.js`
   - `frontend/vendor/grapes.min.css`
   - `frontend/vendor/grapesjs-preset-newsletter.min.js`
+  - `frontend/vendor/easy-email-app.js`
+  - `frontend/vendor/easy-email-app.css`
 - Backend image upload API: `POST /api/admin/uploads/email-assets`
 - Uploaded images are served from `/uploads/email-assets/:filename`.
 
-The current CRM frontend is a static app, not React or Vue. GrapesJS is embedded directly as a browser SDK to avoid changing the existing deployment model.
+The CRM frontend is still a static app, but a React/Vite Easy Email bundle is now built into `frontend/vendor/` and opened through `/easy-email.html`.
+
+GrapesJS remains available as the legacy editor so existing templates can be recovered if needed.
 
 ## Template Storage
 
@@ -22,6 +28,8 @@ The designer saves templates into the existing `email_templates` table:
 - `htmlTemplate`
 - `textTemplate`
 - `variables.designerProject`
+- `variables.easyEmail`
+- `variables.mjmlTemplate`
 
 Existing customer email sending and Campaign sending continue using the same backend template API.
 
@@ -60,20 +68,35 @@ That preview URL is only a placeholder; real links are created during sending.
 
 ## Editor Engine Direction
 
-The current production editor remains GrapesJS because the CRM frontend is a static browser app.
+Easy Email is now available as a parallel editor at:
 
-`zalify/easy-email-editor` is the recommended replacement direction, but it is a React + MJML editor, not a drop-in browser SDK. A safe migration should add a React build pipeline and run the new editor beside the current template API first.
+```text
+https://crm.chiwa.ai/easy-email.html
+```
 
-Recommended migration steps:
+It uses:
 
-1. Add a React/Vite editor bundle under `frontend/editor/`.
-2. Install Easy Email packages in that bundle.
-3. Save Easy Email JSON/MJML into `email_templates.variables.easyEmail`.
-4. Continue saving rendered HTML into `email_templates.htmlTemplate`.
-5. Keep the existing Resend send APIs unchanged.
-6. After visual QA and test sends pass, hide the GrapesJS page.
+- `easy-email-editor`
+- `easy-email-core`
+- `easy-email-extensions`
+- `mjml-browser`
+- React 18
 
-This lets the editor be replaced without touching Inbox, Resend webhooks, Campaign sending, unsubscribe, or customer email timelines.
+The new editor saves:
+
+- Easy Email JSON to `variables.easyEmail`
+- MJML to `variables.mjmlTemplate`
+- rendered email HTML to `htmlTemplate`
+- plain text fallback to `textTemplate`
+
+The send flow remains unchanged: one-to-one email and Campaign still use `htmlTemplate`, so Resend, Inbox, tracking, unsubscribe, and customer timelines are not touched.
+
+Next migration steps:
+
+1. Create several production Easy Email templates.
+2. Run test sends to Gmail, Outlook, and mobile mail clients.
+3. Confirm image sizing, text spacing, CTA links, and archive links.
+4. After QA passes, hide or remove the GrapesJS entry from the CRM tab.
 
 ## CDN / OSS Upgrade Point
 

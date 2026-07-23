@@ -5,10 +5,20 @@
   "type": "module",
   "scripts": {
     "sync-vendor": "node scripts/sync-grapesjs-vendor.mjs",
+    "build:easy-email": "vite build --config vite.easy-email.config.mjs",
     "check": "node --check app.js"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "easy-email-core": "4.17.1",
+    "easy-email-editor": "4.17.1",
+    "easy-email-extensions": "4.17.1",
     "grapesjs": "^0.22.14",
-    "grapesjs-preset-newsletter": "^1.0.2"
+    "grapesjs-preset-newsletter": "^1.0.2",
+    "mjml-browser": "4.15.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-final-form": "6.5.9",
+    "vite": "^8.1.5"
   }
 }
