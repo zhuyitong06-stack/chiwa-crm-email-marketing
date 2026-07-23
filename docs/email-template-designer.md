@@ -124,6 +124,22 @@ Button alignment is saved into the underlying MJML button attributes, so the sen
 
 The footer contact icon bar uses email-safe inline HTML, not external icon images. This keeps it more stable across Gmail, Outlook, and mobile mail clients.
 
+Existing CRM templates can be opened in the new editor from the template list through "新版 Easy Email". Templates that already contain `variables.easyEmail` reopen as full editable Easy Email projects. Older HTML-only templates are imported as a raw HTML material block so they can be reviewed, adjusted, and saved back as reusable Easy Email templates.
+
+## Email Record Cleanup
+
+CRM email records can now be cleaned without touching customers' real mailboxes:
+
+- delete a single message from the customer timeline or Inbox thread
+- clear all messages in the current Inbox thread
+- clear all messages for the currently opened customer
+
+These actions remove CRM-side `email_messages` records only. Resend delivery history and the recipient's inbox are not modified.
+
+## Marketing Analytics
+
+The "分析與轉化" page now prioritizes email marketing metrics instead of the old segment/funnel view. It shows sent count, delivery rate, open rate, click rate, reply conversion rate, combined conversion rate, unsubscribe rate, and recent Resend behavior events.
+
 ## Campaign Flow
 
 The Campaign page now starts from the email content instead of the recipient filter:

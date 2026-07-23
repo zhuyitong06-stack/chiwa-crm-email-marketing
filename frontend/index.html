@@ -6,7 +6,7 @@
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./vendor/grapes.min.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260723-campaignflow" />
+    <link rel="stylesheet" href="./styles.css?v=20260723-templateanalytics" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
   <script>var self = window; window.self = window.self || window;</script>
@@ -276,6 +276,10 @@
                     <i data-lucide="user-round"></i>
                     客户资料
                   </button>
+                  <button class="icon-button danger" id="clearThreadMessagesBtn">
+                    <i data-lucide="trash-2"></i>
+                    清空會話
+                  </button>
                 </div>
                 <div id="inboxThreadMessages" class="thread-list"></div>
               </section>
@@ -297,6 +301,7 @@
                   <h2>模板編輯</h2>
                   <span id="templateEditLabel">新增模板</span>
                 </div>
+                <p class="form-hint">左側「新版 Easy Email」可打開已保存模板素材；舊 HTML 模板也會載入新版編輯器繼續修改。</p>
                 <form id="templateForm" class="mail-form">
                   <input type="hidden" id="templateIdField" />
                   <label>模板名稱 <input id="templateNameField" required /></label>
@@ -675,10 +680,9 @@
             <div class="analysis-grid">
               <section class="work-card funnel-analysis-card">
                 <div class="card-title">
-                  <h2>漏斗图表分析</h2>
-                  <span>按固定 5 阶段展示累计覆盖与阶段转化</span>
+                  <h2>郵件營銷分析總覽</h2>
+                  <span>打开率、点击率、回复转化与退订风险</span>
                 </div>
-                <div id="analysisFunnelChart" class="marketing-funnel analysis"></div>
                 <div id="conversionSummary" class="conversion-summary"></div>
                 <div id="conversionTable" class="conversion-table"></div>
               </section>
@@ -831,6 +835,10 @@
               <i data-lucide="refresh-cw"></i>
               載入記錄
             </button>
+            <button type="button" class="icon-button danger" id="clearContactEmailsBtn">
+              <i data-lucide="trash-2"></i>
+              清空記錄
+            </button>
           </div>
           <div class="email-status" id="sendEmailStatus">尚未連接後端郵件記錄。</div>
           <div class="email-timeline" id="emailTimeline"></div>
@@ -844,6 +852,6 @@
     </script>
     <script src="./vendor/grapes.min.js"></script>
     <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
-    <script src="./app.js?v=20260723-campaignflow"></script>
+    <script src="./app.js?v=20260723-templateanalytics"></script>
   </body>
 </html>

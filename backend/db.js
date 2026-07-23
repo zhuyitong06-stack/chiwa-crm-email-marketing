@@ -492,6 +492,31 @@ export function findEmailMessageById(id) {
   return db.prepare("SELECT * FROM email_messages WHERE id = ?").get(id) || null;
 }
 
+function deleteThreadsWithoutMessages() {
+  db.prepare(`
+    DELETE FROM email_threads
+    WHERE id NOT IN (SELECT DISTINCT threadId FROM email_messages)
+  `).run();
+}
+
+export function deleteEmailMessageById(id) {
+  const result = db.prepare("DELETE FROM email_messages WHERE id = ?").run(id);
+  deleteThreadsWithoutMessages();
+  return Number(result.changes) || 0;
+}
+
+export function deleteMessagesForContact(contactId) {
+  const result = db.prepare("DELETE FROM email_messages WHERE contactId = ?").run(contactId);
+  deleteThreadsWithoutMessages();
+  return Number(result.changes) || 0;
+}
+
+export function deleteMessagesForThread(threadId) {
+  const result = db.prepare("DELETE FROM email_messages WHERE threadId = ?").run(threadId);
+  deleteThreadsWithoutMessages();
+  return Number(result.changes) || 0;
+}
+
 export function listInboxMessages({ search = "", status = "", read = "", assignedTo = "", limit = 50, offset = 0 } = {}) {
   const query = `%${String(search).trim().toLowerCase()}%`;
   const normalizedStatus = String(status || "").trim().toLowerCase();

@@ -20,6 +20,12 @@ function createTextBlock(content, attributes = {}, role = "") {
   return block;
 }
 
+function createRawHtmlBlock(content, role = "legacy_html_template") {
+  return BlockManager.getBlockByType(BasicType.RAW).create({
+    data: { value: { content, chiwaRole: role } },
+  });
+}
+
 function createImageBlock(src, alt = "郵件圖片") {
   return BlockManager.getBlockByType(AdvancedType.IMAGE).create({
     attributes: {
@@ -139,6 +145,22 @@ function defaultEmailData() {
   };
 }
 
+function legacyTemplateData(template) {
+  const data = defaultEmailData();
+  data.subject = template.subjectTemplate || data.subject;
+  data.subTitle = "由舊模板素材轉入新版 Easy Email";
+  const html = String(template.htmlTemplate || "").trim();
+  const text = String(template.textTemplate || "").trim();
+  data.content.children = [
+    createArchiveHeaderBlock(),
+    html
+      ? createRawHtmlBlock(html)
+      : createTextBlock(`<p>${escapeText(text || "請在這裡編輯舊模板內容")}</p>`, { color: "#111827", "font-size": "16px", padding: "24px 32px" }),
+    createComplianceFooterBlock(),
+  ];
+  return data;
+}
+
 function normalizeToken(token) {
   return String(token || "")
     .trim()
@@ -216,6 +238,7 @@ function App() {
   const [emailUrl, setEmailUrl] = useState("mailto:marketing@chiwa.ai");
   const [websiteUrl, setWebsiteUrl] = useState("https://chiwa.ai");
   const valuesRef = useRef(editorData);
+  const initialTemplateOpenedRef = useRef(false);
 
   const apiRequest = useCallback(async (path, options = {}) => {
     const authToken = normalizeToken(token);
@@ -237,8 +260,14 @@ function App() {
   const loadTemplates = useCallback(async () => {
     setStatus("正在載入模板...");
     const payload = await apiRequest("/api/admin/templates");
-    setTemplates(payload.templates || []);
-    setStatus(`已載入 ${(payload.templates || []).length} 個模板`);
+    const loadedTemplates = payload.templates || [];
+    setTemplates(loadedTemplates);
+    const requestedTemplateId = new URLSearchParams(window.location.search).get("templateId") || "";
+    if (requestedTemplateId && !initialTemplateOpenedRef.current) {
+      initialTemplateOpenedRef.current = true;
+      openTemplate(requestedTemplateId, loadedTemplates);
+    }
+    setStatus(`已載入 ${loadedTemplates.length} 個模板`);
   }, [apiRequest]);
 
   const loadAssets = useCallback(async () => {
@@ -278,9 +307,9 @@ function App() {
     },
   ], []);
 
-  function openTemplate(id) {
+  function openTemplate(id, sourceTemplates = templates) {
     setTemplateId(id);
-    const template = templates.find((item) => item.id === id);
+    const template = sourceTemplates.find((item) => item.id === id);
     if (!template) {
       setName("新圖文模板");
       setPurpose("marketing");
@@ -296,11 +325,8 @@ function App() {
     if (easyEmail?.content) {
       setEditorData(easyEmail);
     } else {
-      const data = defaultEmailData();
-      data.subject = template.subjectTemplate || data.subject;
-      data.subTitle = "由舊模板建立的新 Easy Email 版本";
-      setEditorData(data);
-      setStatus("舊模板已載入為新 Easy Email 草稿，保存後會生成新版圖文模板");
+      setEditorData(legacyTemplateData(template));
+      setStatus("舊模板素材已載入新版 Easy Email，保存後會生成可復用圖文模板");
     }
     setEditorKey((key) => key + 1);
   }

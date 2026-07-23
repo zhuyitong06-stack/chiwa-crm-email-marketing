@@ -216,6 +216,12 @@ h2 {
   padding: 4px 8px;
 }
 
+.text-button.danger-text {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
 .summary-grid {
   display: grid;
   gap: 10px;

@@ -1,6 +1,6 @@
 import express from "express";
 import { requireAdmin } from "../auth.js";
-import { deleteContactsByIds, findContactById, listContacts, listMessagesForContact, upsertContact } from "../db.js";
+import { deleteContactsByIds, deleteMessagesForContact, findContactById, listContacts, listMessagesForContact, upsertContact } from "../db.js";
 import { createConsentToken, createUnsubscribeToken, isValidEmail, publicError, unwrapArray } from "../utils.js";
 
 const router = express.Router();
@@ -27,6 +27,13 @@ router.get("/contacts/:contactId/emails", (req, res, next) => {
   const contact = findContactById(req.params.contactId);
   if (!contact) return next(publicError("Contact not found", 404));
   return res.json({ ok: true, contactId: contact.id, messages: listMessagesForContact(contact.id) });
+});
+
+router.delete("/contacts/:contactId/emails", (req, res, next) => {
+  const contact = findContactById(req.params.contactId);
+  if (!contact) return next(publicError("Contact not found", 404));
+  const deleted = deleteMessagesForContact(contact.id);
+  return res.json({ ok: true, contactId: contact.id, deleted });
 });
 
 router.get("/contacts/:contactId/consent-links", (req, res, next) => {

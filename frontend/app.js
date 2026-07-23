@@ -585,36 +585,58 @@
   }
 
   function renderConversion() {
-    const stats = getFunnelStats();
-    renderFunnelVisual("analysisFunnelChart", "analysis");
+    if (!$("conversionSummary") || !$("conversionTable")) return;
     $("conversionSummary").innerHTML = `
-      <div><span>总客户数</span><strong>${stats.total}</strong></div>
-      <div><span>已进入漏斗</span><strong>${stats.tracked}</strong></div>
-      <div><span>综合转化率</span><strong>${stats.conversionRate}%</strong></div>
+      <div><span>郵件營銷</span><strong>--</strong></div>
+      <div><span>打開率</span><strong>--</strong></div>
+      <div><span>點擊率</span><strong>--</strong></div>
     `;
-    if (stats.tracked === 0) {
-      $("conversionTable").innerHTML = `
-        <div class="conversion-row">
-          <strong>暂无营销漏斗数据</strong>
-          <span>目前只完成客户资料导入。后续连接营销系统并发生邮件发送后，再按 5 个阶段统计点击、确认、订阅和转化。</span>
-        </div>
-      `;
+    $("conversionTable").innerHTML = `
+      <div class="conversion-row">
+        <strong>等待郵件營銷數據</strong>
+        <span>載入分析頁後，這裡會顯示發送、送達、打開、點擊、回覆轉化、退訂等實際郵件行為。</span>
+      </div>
+    `;
+  }
+
+  function renderMarketingAnalyticsOverview(analytics = null) {
+    if (!$("conversionSummary") || !$("conversionTable")) return;
+    if (!analytics) {
+      renderConversion();
       return;
     }
-    $("conversionTable").innerHTML = DEFAULT_FUNNEL
-      .map((stage, index) => {
-        const cumulative = stats.cumulative[stage.name] || 0;
-        const exact = stats.exact[stage.name] || 0;
-        const previous = index === 0 ? stats.total : stats.cumulative[DEFAULT_FUNNEL[index - 1].name] || 0;
-        const pass = previous ? Math.round((cumulative / previous) * 100) : 0;
-        const share = stats.total ? Math.round((cumulative / stats.total) * 100) : 0;
-        return `
-          <div class="conversion-row">
-            <strong>阶段 ${stage.step} · ${escapeHtml(stage.name)}：累计 ${cumulative}</strong>
-            <span>当前停留 ${exact} · 总库覆盖 ${share}% · 阶段转化 ${pass}%</span>
-          </div>
-        `;
-      })
+    const totals = analytics.totals || {};
+    const sent = Number(totals.sentCount) || 0;
+    const pct = (count, base = sent) => `${base ? Math.round((Number(count || 0) / base) * 100) : 0}%`;
+    const openedRate = pct(totals.openedCount);
+    const clickedRate = pct(totals.clickedCount);
+    const replyRate = pct(totals.replyCount);
+    const conversionRate = pct((Number(totals.clickedCount) || 0) + (Number(totals.replyCount) || 0));
+    const unsubscribeRate = pct(totals.unsubscribedCount);
+    $("conversionSummary").innerHTML = [
+      ["已發送", totals.sentCount],
+      ["郵件打開率", openedRate],
+      ["郵件點擊率", clickedRate],
+      ["回覆轉化率", replyRate],
+      ["綜合轉化率", conversionRate],
+      ["退訂率", unsubscribeRate],
+    ]
+      .map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong></div>`)
+      .join("");
+    $("conversionTable").innerHTML = [
+      ["送達率", pct(totals.deliveredCount), `${Number(totals.deliveredCount) || 0} / ${sent}`],
+      ["打開率", openedRate, `${Number(totals.openedCount) || 0} / ${sent}`],
+      ["點擊率", clickedRate, `${Number(totals.clickedCount) || 0} / ${sent}`],
+      ["回覆轉化率", replyRate, `${Number(totals.replyCount) || 0} / ${sent}`],
+      ["退信/失敗", `${Number(totals.failedCount) || 0}`, "退信、失敗與抑制名單會影響後續發送"],
+      ["投訴/退訂", `${Number(totals.complainedCount) || 0} / ${Number(totals.unsubscribedCount) || 0}`, "投訴與退訂客戶會自動排除 Marketing 發送"],
+    ]
+      .map(([title, metric, detail]) => `
+        <div class="conversion-row">
+          <strong>${escapeHtml(title)}：${escapeHtml(metric)}</strong>
+          <span>${escapeHtml(detail)}</span>
+        </div>
+      `)
       .join("");
   }
 
@@ -658,10 +680,12 @@
 
   async function loadEmailAnalytics() {
     if (!adminToken()) {
+      renderMarketingAnalyticsOverview(null);
       renderEmailAnalytics(null);
       return;
     }
     const payload = await apiRequest("/api/admin/analytics/email");
+    renderMarketingAnalyticsOverview(payload.analytics);
     renderEmailAnalytics(payload.analytics);
   }
 
@@ -1167,7 +1191,10 @@
           <div class="email-message-item">
             <div class="message-heading">
               <strong>${escapeHtml(message.subject || "(no subject)")}</strong>
-              ${isInbound ? `<button class="text-button" data-reply-thread="${escapeHtml(message.threadId)}" data-reply-subject="${escapeHtml(message.subject || "")}" data-reply-from="${escapeHtml(message.fromEmail || "")}">回复</button>` : ""}
+              <span class="message-actions">
+                ${isInbound ? `<button class="text-button" data-reply-thread="${escapeHtml(message.threadId)}" data-reply-subject="${escapeHtml(message.subject || "")}" data-reply-from="${escapeHtml(message.fromEmail || "")}">回复</button>` : ""}
+                <button class="text-button danger-text" data-delete-email-message="${escapeHtml(message.id)}">刪除</button>
+              </span>
             </div>
             <span>${escapeHtml(isInbound ? "收到" : "發出")} · <mark class="status-chip ${emailStatusClass(message.status)}">${escapeHtml(status)}</mark> · ${escapeHtml(emailMessageTime(message))}</span>
             ${preview ? `<p class="${isInbound ? "message-body" : ""}">${escapeHtml(preview)}</p>` : ""}
@@ -1426,7 +1453,10 @@
           const body = emailBodyText(message);
           return `
             <article class="thread-message ${isInbound ? "inbound" : "outbound"}">
-              <strong>${escapeHtml(isInbound ? message.fromEmail : message.toEmail)}</strong>
+              <div class="message-heading">
+                <strong>${escapeHtml(isInbound ? message.fromEmail : message.toEmail)}</strong>
+                <button class="text-button danger-text" data-delete-thread-message="${escapeHtml(message.id)}">刪除</button>
+              </div>
               <span>${escapeHtml(isInbound ? "收到" : "發出")} · <mark class="status-chip ${emailStatusClass(message.status)}">${escapeHtml(emailStatusLabel(message.status))}</mark> · ${escapeHtml(emailMessageTime(message))}</span>
               ${body ? `<p class="message-body">${escapeHtml(body)}</p>` : `<p class="message-body muted-body">這封郵件暫無正文，請稍後重新整理。</p>`}
             </article>
@@ -1487,6 +1517,47 @@
     }
     await loadInbox();
     setToast(read ? "已標記已讀" : "已標記未讀");
+  }
+
+  async function deleteEmailMessage(messageId, { refreshContact = false } = {}) {
+    if (!messageId) return;
+    if (!confirm("確認刪除這封 CRM 郵件記錄？此操作不會刪除收件人真實郵箱中的郵件。")) return;
+    const payload = await apiRequest(`/api/admin/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
+    if (mailState.activeThreadId === payload.threadId) {
+      mailState.activeThreadMessages = mailState.activeThreadMessages.filter((message) => message.id !== messageId);
+      renderInboxThread(mailState.activeThreadMessages);
+    }
+    if (refreshContact) await refreshEmailHistory();
+    await loadInbox().catch(() => {});
+    setToast(`已刪除 ${payload.deleted || 0} 封郵件記錄`);
+  }
+
+  async function clearActiveThreadMessages() {
+    if (!mailState.activeThreadId) {
+      setToast("請先選擇會話");
+      return;
+    }
+    if (!confirm("確認清空目前會話內的所有 CRM 郵件記錄？")) return;
+    const payload = await apiRequest(`/api/admin/threads/${encodeURIComponent(mailState.activeThreadId)}/messages`, { method: "DELETE" });
+    mailState.activeThreadId = "";
+    mailState.activeThread = null;
+    mailState.activeThreadMessages = [];
+    $("inboxThreadLabel").textContent = "選擇郵件查看";
+    renderInboxThread([]);
+    await loadInbox();
+    setToast(`已清空 ${payload.deleted || 0} 封會話郵件記錄`);
+  }
+
+  async function clearContactEmailHistory() {
+    const lead = getLead($("leadIdField").value);
+    if (!lead) return;
+    if (!confirm(`確認清空「${lead.company || lead.email}」的所有 CRM 郵件記錄？`)) return;
+    const contact = await syncDrawerLeadToBackend();
+    const payload = await apiRequest(`/api/admin/contacts/${encodeURIComponent(contact.id)}/emails`, { method: "DELETE" });
+    renderEmailTimeline([]);
+    $("sendEmailStatus").textContent = `已清空 ${payload.deleted || 0} 封郵件記錄。`;
+    await loadInbox().catch(() => {});
+    setToast("客戶郵件記錄已清空");
   }
 
   function activeInboxMessage() {
@@ -2475,6 +2546,7 @@
               </div>
               <div class="mail-actions">
                 <button class="icon-only" data-use-template="${escapeHtml(template.id)}" title="套用到客戶郵件"><i data-lucide="copy-check"></i></button>
+                <button class="icon-only" data-easy-template="${escapeHtml(template.id)}" title="新版 Easy Email 編輯"><i data-lucide="blocks"></i></button>
                 <button class="icon-only" data-design-template="${escapeHtml(template.id)}" title="打開設計器"><i data-lucide="layout-template"></i></button>
                 <button class="icon-only" data-edit-template="${escapeHtml(template.id)}" title="編輯模板"><i data-lucide="pencil"></i></button>
                 <button class="icon-only danger" data-delete-template="${escapeHtml(template.id)}" title="刪除模板"><i data-lucide="trash-2"></i></button>
@@ -4430,7 +4502,13 @@
     $("saveDraftBtn").addEventListener("click", () => saveCurrentEmailDraft());
     $("clearDraftBtn").addEventListener("click", clearCurrentEmailDraft);
     $("refreshEmailsBtn").addEventListener("click", refreshEmailHistory);
+    $("clearContactEmailsBtn").addEventListener("click", () => runAsync(clearContactEmailHistory));
     $("emailTimeline").addEventListener("click", (event) => {
+      const remove = event.target.closest("[data-delete-email-message]");
+      if (remove) {
+        runAsync(() => deleteEmailMessage(remove.dataset.deleteEmailMessage, { refreshContact: true }));
+        return;
+      }
       const reply = event.target.closest("[data-reply-thread]");
       if (!reply) return;
       prepareDrawerReply({
@@ -4452,6 +4530,7 @@
     $("saveThreadMetaBtn").addEventListener("click", () => runAsync(saveActiveThreadMeta));
     $("useInboxTemplateBtn").addEventListener("click", () => runAsync(useInboxReplyTemplate));
     $("openThreadContactBtn").addEventListener("click", openActiveThreadContact);
+    $("clearThreadMessagesBtn").addEventListener("click", () => runAsync(clearActiveThreadMessages));
     $("inboxList").addEventListener("click", (event) => {
       const thread = event.target.closest("[data-open-thread]");
       if (thread) {
@@ -4469,6 +4548,10 @@
       if (readButton) {
         runAsync(() => markInboxThreadRead(readButton.dataset.inboxRead, readButton.dataset.readValue === "true"));
       }
+    });
+    $("inboxThreadMessages").addEventListener("click", (event) => {
+      const remove = event.target.closest("[data-delete-thread-message]");
+      if (remove) runAsync(() => deleteEmailMessage(remove.dataset.deleteThreadMessage));
     });
     $("templateForm").addEventListener("submit", (event) => runAsync(() => saveTemplate(event)));
     $("resetTemplateBtn").addEventListener("click", resetTemplateForm);
@@ -4488,6 +4571,11 @@
           await loadDesignerPage();
           await openDesignerTemplate(design.dataset.designTemplate);
         });
+        return;
+      }
+      const easy = event.target.closest("[data-easy-template]");
+      if (easy) {
+        window.open(`/easy-email.html?templateId=${encodeURIComponent(easy.dataset.easyTemplate)}`, "_blank", "noopener");
         return;
       }
       const remove = event.target.closest("[data-delete-template]");
