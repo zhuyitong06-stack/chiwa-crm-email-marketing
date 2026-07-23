@@ -109,6 +109,25 @@ The page also includes explicit controls for:
 - adding or deleting the closing compliance component
 - refreshing existing uploaded assets
 - inserting uploaded assets into the email body
+- changing the opening component background color
+- changing the closing compliance component background color
+- inserting highlighted text blocks
+- inserting editable text links
+- inserting editable button links
+
+The link tools save the URL directly into the Easy Email JSON and exported HTML. Use them for CTA buttons, partner links, product pages, web archive links, or other campaign-specific destinations.
+
+## Campaign Flow
+
+The Campaign page now starts from the email content instead of the recipient filter:
+
+1. Select the email template.
+2. Review or adjust the campaign subject and body.
+3. Connect the campaign to CRM contacts.
+4. Filter recipients by Lead ID, priority, and saved audience view.
+5. Estimate the eligible audience before preview, test send, or production send.
+
+The backend audience rules remain unchanged: customers who bounced, complained, were suppressed, or unsubscribed are excluded from Marketing campaign sends.
 
 Next migration steps:
 

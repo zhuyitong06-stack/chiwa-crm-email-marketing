@@ -126,7 +126,7 @@ select {
 
 .easy-controls {
   display: grid;
-  grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.4fr);
+  grid-template-columns: minmax(420px, 1.05fr) minmax(560px, 1.25fr);
   gap: 12px;
   padding: 10px 20px;
   background: #ffffff;
@@ -161,7 +161,36 @@ select {
   color: #0f766e;
 }
 
+.easy-component-tools {
+  align-items: end;
+}
+
+.easy-component-tools input:not([type="color"]) {
+  min-height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+
+.easy-component-tools input[type="color"] {
+  width: 42px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 2px;
+  background: #ffffff;
+}
+
+.easy-component-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-weight: 700;
+}
+
 .easy-asset-strip {
+  grid-column: 1 / -1;
   overflow-x: auto;
   flex-wrap: nowrap;
   padding-bottom: 2px;

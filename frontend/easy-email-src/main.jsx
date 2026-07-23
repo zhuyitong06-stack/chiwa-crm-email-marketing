@@ -32,12 +32,12 @@ function createImageBlock(src, alt = "郵件圖片") {
   });
 }
 
-function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai") {
+function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai", backgroundColor = "#0f766e") {
   return BlockManager.getBlockByType(AdvancedType.BUTTON).create({
     data: { value: { content } },
     attributes: {
       href,
-      "background-color": "#0f766e",
+      "background-color": backgroundColor,
       color: "#ffffff",
       "border-radius": "6px",
       padding: "16px 32px",
@@ -46,19 +46,33 @@ function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai
   });
 }
 
-function createArchiveHeaderBlock() {
+function createArchiveHeaderBlock(backgroundColor = "#0f766e") {
   return createTextBlock(
-    '<p style="text-align:center;"><a href="{{web_archive_url}}">查看網頁版</a></p>',
-    { color: "#0f766e", "font-size": "13px", padding: "16px 24px 8px", align: "center" },
+    '<p style="text-align:center;margin:0;"><a href="{{web_archive_url}}" style="color:#ffffff;text-decoration:underline;">查看網頁版</a></p>',
+    { "background-color": backgroundColor, color: "#ffffff", "font-size": "15px", padding: "18px 24px", align: "center" },
     "archive_header",
   );
 }
 
-function createComplianceFooterBlock() {
+function createComplianceFooterBlock(backgroundColor = "#f1f5f9") {
   return createTextBlock(
-    '<p style="font-size:12px;color:#667085;">您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br><a href="{{consent_url}}">確認訂閱同意</a> · <a href="{{unsubscribe_url}}">退訂營銷郵件</a></p>',
-    { color: "#667085", "font-size": "12px", padding: "24px 32px" },
+    '<p style="font-size:12px;color:#667085;margin:0;">您收到此郵件，是因為我們認為 Chiwa AI 的內容可能對您有幫助。<br><a href="{{consent_url}}">確認訂閱同意</a> · <a href="{{unsubscribe_url}}">退訂營銷郵件</a></p>',
+    { "background-color": backgroundColor, color: "#667085", "font-size": "12px", padding: "24px 32px" },
     "compliance_footer",
+  );
+}
+
+function createHighlightBlock(text = "這是一段高亮重點文字", backgroundColor = "#fff3a3") {
+  return createTextBlock(
+    `<p style="margin:0;"><span style="background-color:${backgroundColor};padding:2px 5px;border-radius:3px;">${escapeText(text)}</span></p>`,
+    { color: "#111827", "font-size": "18px", padding: "12px 32px" },
+  );
+}
+
+function createTextLinkBlock(text = "查看詳情", href = "https://chiwa.ai") {
+  return createTextBlock(
+    `<p style="margin:0;"><a href="${escapeAttribute(href)}" target="_blank" style="color:#0f766e;text-decoration:underline;font-weight:700;">${escapeText(text)}</a></p>`,
+    { color: "#0f766e", "font-size": "16px", padding: "12px 32px" },
   );
 }
 
@@ -127,6 +141,17 @@ function safeJsonParse(value, fallback) {
   }
 }
 
+function escapeText(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function escapeAttribute(value) {
+  return escapeText(value).replaceAll('"', "&quot;");
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -147,6 +172,13 @@ function App() {
   const [editorData, setEditorData] = useState(defaultEmailData);
   const [assetUrl, setAssetUrl] = useState("");
   const [assets, setAssets] = useState([]);
+  const [headerBg, setHeaderBg] = useState("#0f766e");
+  const [footerBg, setFooterBg] = useState("#f1f5f9");
+  const [highlightText, setHighlightText] = useState("重點優惠 / 重要提醒");
+  const [highlightBg, setHighlightBg] = useState("#fff3a3");
+  const [linkText, setLinkText] = useState("查看詳情");
+  const [linkUrl, setLinkUrl] = useState("https://chiwa.ai");
+  const [buttonBg, setButtonBg] = useState("#0f766e");
   const valuesRef = useRef(editorData);
 
   const apiRequest = useCallback(async (path, options = {}) => {
@@ -286,7 +318,7 @@ function App() {
   function addArchiveHeader() {
     updateEditorContent((content) => {
       const children = (content.children || []).filter((item) => blockRole(item) !== "archive_header");
-      return { ...content, children: [createArchiveHeaderBlock(), ...children] };
+      return { ...content, children: [createArchiveHeaderBlock(headerBg), ...children] };
     }, "已加入頁頭網頁版連結");
   }
 
@@ -300,7 +332,7 @@ function App() {
   function addComplianceFooter() {
     updateEditorContent((content) => {
       const children = (content.children || []).filter((item) => blockRole(item) !== "compliance_footer");
-      return { ...content, children: [...children, createComplianceFooterBlock()] };
+      return { ...content, children: [...children, createComplianceFooterBlock(footerBg)] };
     }, "已加入末尾合規組件");
   }
 
@@ -309,6 +341,56 @@ function App() {
       ...content,
       children: (content.children || []).filter((item) => blockRole(item) !== "compliance_footer"),
     }), "已刪除末尾合規組件；保存時仍會自動補退訂連結");
+  }
+
+  function updateRoleBackground(role, backgroundColor, fallbackFactory, message) {
+    updateEditorContent((content) => {
+      const children = [...(content.children || [])];
+      const index = children.findIndex((item) => blockRole(item) === role);
+      if (index >= 0) {
+        children[index] = {
+          ...children[index],
+          attributes: {
+            ...(children[index].attributes || {}),
+            "background-color": backgroundColor,
+          },
+        };
+      } else if (role === "archive_header") {
+        children.unshift(fallbackFactory(backgroundColor));
+      } else {
+        children.push(fallbackFactory(backgroundColor));
+      }
+      return { ...content, children };
+    }, message);
+  }
+
+  function applyHeaderBackground() {
+    updateRoleBackground("archive_header", headerBg, createArchiveHeaderBlock, "已更新開頭背景色");
+  }
+
+  function applyFooterBackground() {
+    updateRoleBackground("compliance_footer", footerBg, createComplianceFooterBlock, "已更新末尾背景色");
+  }
+
+  function insertHighlightText() {
+    updateEditorContent(
+      (content) => insertBeforeFooter(content, createHighlightBlock(highlightText, highlightBg)),
+      "已插入高亮文本",
+    );
+  }
+
+  function insertTextLink() {
+    updateEditorContent(
+      (content) => insertBeforeFooter(content, createTextLinkBlock(linkText, linkUrl)),
+      "已插入文字超連結",
+    );
+  }
+
+  function insertButtonLink() {
+    updateEditorContent(
+      (content) => insertBeforeFooter(content, createButtonBlock(linkText || "查看詳情", linkUrl || "https://chiwa.ai", buttonBg)),
+      "已插入按鈕超連結",
+    );
   }
 
   async function saveTemplate() {
@@ -400,12 +482,27 @@ function App() {
       </section>
 
       <section className="easy-controls">
-        <div className="easy-control-group">
-          <strong>快速組件</strong>
-          <button type="button" onClick={addArchiveHeader}>加入開頭：查看網頁版</button>
+        <div className="easy-control-group easy-component-tools">
+          <strong>開頭 / 末尾</strong>
+          <label>開頭背景 <input type="color" value={headerBg} onChange={(event) => setHeaderBg(event.target.value)} /></label>
+          <button type="button" onClick={applyHeaderBackground}>套用開頭背景</button>
+          <button type="button" onClick={addArchiveHeader}>加入開頭</button>
           <button type="button" onClick={removeArchiveHeader}>刪除開頭</button>
-          <button type="button" onClick={addComplianceFooter}>加入末尾：合規退訂</button>
+          <label>末尾背景 <input type="color" value={footerBg} onChange={(event) => setFooterBg(event.target.value)} /></label>
+          <button type="button" onClick={applyFooterBackground}>套用末尾背景</button>
+          <button type="button" onClick={addComplianceFooter}>加入末尾</button>
           <button type="button" onClick={removeComplianceFooter}>刪除末尾</button>
+        </div>
+        <div className="easy-control-group easy-component-tools">
+          <strong>高亮 / 連結</strong>
+          <input value={highlightText} onChange={(event) => setHighlightText(event.target.value)} placeholder="高亮文字" />
+          <input type="color" value={highlightBg} onChange={(event) => setHighlightBg(event.target.value)} />
+          <button type="button" onClick={insertHighlightText}>插入高亮文本</button>
+          <input value={linkText} onChange={(event) => setLinkText(event.target.value)} placeholder="連結文字 / 按鈕文字" />
+          <input value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder="https://example.com" />
+          <input type="color" value={buttonBg} onChange={(event) => setButtonBg(event.target.value)} />
+          <button type="button" onClick={insertTextLink}>插入文字連結</button>
+          <button type="button" onClick={insertButtonLink}>插入按鈕連結</button>
         </div>
         <div className="easy-control-group easy-asset-strip">
           <strong>素材庫</strong>
