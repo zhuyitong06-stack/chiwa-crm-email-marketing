@@ -161,15 +161,29 @@ select {
   color: #0f766e;
 }
 
+.easy-control-group button.dark-action {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.easy-control-group button.dark-action:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
 .easy-component-tools {
   align-items: end;
 }
 
-.easy-component-tools input:not([type="color"]) {
+.easy-component-tools input:not([type="color"]),
+.easy-component-tools select {
   min-height: 34px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 6px 9px;
+  background: #ffffff;
 }
 
 .easy-component-tools input[type="color"] {
@@ -187,6 +201,15 @@ select {
   gap: 6px;
   color: #475569;
   font-weight: 700;
+}
+
+.easy-social-tools {
+  grid-column: 1 / -1;
+}
+
+.easy-social-tools input:not([type="color"]) {
+  min-width: 240px;
+  flex: 1 1 240px;
 }
 
 .easy-asset-strip {

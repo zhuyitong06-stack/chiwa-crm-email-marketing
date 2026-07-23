@@ -32,11 +32,12 @@ function createImageBlock(src, alt = "郵件圖片") {
   });
 }
 
-function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai", backgroundColor = "#0f766e") {
+function createButtonBlock(content = "了解 Chiwa AI", href = "https://chiwa.ai", backgroundColor = "#0f766e", align = "center") {
   return BlockManager.getBlockByType(AdvancedType.BUTTON).create({
-    data: { value: { content } },
+    data: { value: { content, chiwaRole: "cta_button" } },
     attributes: {
       href,
+      align,
       "background-color": backgroundColor,
       color: "#ffffff",
       "border-radius": "6px",
@@ -73,6 +74,35 @@ function createTextLinkBlock(text = "查看詳情", href = "https://chiwa.ai") {
   return createTextBlock(
     `<p style="margin:0;"><a href="${escapeAttribute(href)}" target="_blank" style="color:#0f766e;text-decoration:underline;font-weight:700;">${escapeText(text)}</a></p>`,
     { color: "#0f766e", "font-size": "16px", padding: "12px 32px" },
+  );
+}
+
+function createContactIconFooterBlock({
+  backgroundColor = "#111827",
+  whatsappUrl = "https://wa.me/85236569625",
+  wechatUrl = "https://chiwa.ai",
+  emailUrl = "mailto:marketing@chiwa.ai",
+  websiteUrl = "https://chiwa.ai",
+} = {}) {
+  const links = [
+    { label: "WhatsApp", icon: "WA", href: whatsappUrl, color: "#22c55e" },
+    { label: "WeChat", icon: "WeChat", href: wechatUrl, color: "#16a34a" },
+    { label: "Email", icon: "@", href: emailUrl, color: "#2563eb" },
+    { label: "Website", icon: "WWW", href: websiteUrl, color: "#0f766e" },
+  ];
+  const linkHtml = links
+    .filter((item) => item.href)
+    .map((item) => `
+      <a href="${escapeAttribute(item.href)}" target="_blank" style="display:inline-block;margin:4px 6px;text-decoration:none;color:#ffffff;">
+        <span style="display:inline-block;min-width:44px;border-radius:999px;background:${item.color};padding:9px 12px;font-size:13px;font-weight:700;line-height:1;text-align:center;">${escapeText(item.icon)}</span>
+        <span style="display:block;margin-top:5px;color:#e5e7eb;font-size:12px;">${escapeText(item.label)}</span>
+      </a>
+    `)
+    .join("");
+  return createTextBlock(
+    `<div style="text-align:center;margin:0;">${linkHtml}</div>`,
+    { "background-color": backgroundColor, color: "#ffffff", "font-size": "13px", padding: "20px 24px" },
+    "contact_icon_footer",
   );
 }
 
@@ -179,6 +209,12 @@ function App() {
   const [linkText, setLinkText] = useState("查看詳情");
   const [linkUrl, setLinkUrl] = useState("https://chiwa.ai");
   const [buttonBg, setButtonBg] = useState("#0f766e");
+  const [buttonAlign, setButtonAlign] = useState("center");
+  const [contactFooterBg, setContactFooterBg] = useState("#111827");
+  const [whatsappUrl, setWhatsappUrl] = useState("https://wa.me/85236569625");
+  const [wechatUrl, setWechatUrl] = useState("https://chiwa.ai");
+  const [emailUrl, setEmailUrl] = useState("mailto:marketing@chiwa.ai");
+  const [websiteUrl, setWebsiteUrl] = useState("https://chiwa.ai");
   const valuesRef = useRef(editorData);
 
   const apiRequest = useCallback(async (path, options = {}) => {
@@ -307,6 +343,14 @@ function App() {
     return { ...content, children };
   }
 
+  function mapBlocks(block, transform) {
+    const nextBlock = transform({ ...block });
+    if (Array.isArray(nextBlock.children)) {
+      nextBlock.children = nextBlock.children.map((child) => mapBlocks(child, transform));
+    }
+    return nextBlock;
+  }
+
   function insertImageAsset(src, alt = "郵件圖片") {
     if (!src) return setStatus("請先上傳或選擇圖片素材");
     updateEditorContent(
@@ -343,6 +387,24 @@ function App() {
     }), "已刪除末尾合規組件；保存時仍會自動補退訂連結");
   }
 
+  function addContactIconFooter() {
+    updateEditorContent((content) => {
+      const children = (content.children || []).filter((item) => blockRole(item) !== "contact_icon_footer");
+      const iconFooter = createContactIconFooterBlock({ backgroundColor: contactFooterBg, whatsappUrl, wechatUrl, emailUrl, websiteUrl });
+      const complianceIndex = children.findIndex((item) => blockRole(item) === "compliance_footer");
+      if (complianceIndex >= 0) children.splice(complianceIndex, 0, iconFooter);
+      else children.push(iconFooter);
+      return { ...content, children };
+    }, "已加入尾部联系圖標");
+  }
+
+  function removeContactIconFooter() {
+    updateEditorContent((content) => ({
+      ...content,
+      children: (content.children || []).filter((item) => blockRole(item) !== "contact_icon_footer"),
+    }), "已刪除尾部联系圖標");
+  }
+
   function updateRoleBackground(role, backgroundColor, fallbackFactory, message) {
     updateEditorContent((content) => {
       const children = [...(content.children || [])];
@@ -372,6 +434,28 @@ function App() {
     updateRoleBackground("compliance_footer", footerBg, createComplianceFooterBlock, "已更新末尾背景色");
   }
 
+  function applyContactFooterBackground() {
+    updateRoleBackground(
+      "contact_icon_footer",
+      contactFooterBg,
+      (backgroundColor) => createContactIconFooterBlock({ backgroundColor, whatsappUrl, wechatUrl, emailUrl, websiteUrl }),
+      "已更新尾部联系圖標背景色",
+    );
+  }
+
+  function applyButtonAlignment() {
+    updateEditorContent((content) => mapBlocks(content, (block) => {
+      if (block?.type !== AdvancedType.BUTTON && blockRole(block) !== "cta_button") return block;
+      return {
+        ...block,
+        attributes: {
+          ...(block.attributes || {}),
+          align: buttonAlign,
+        },
+      };
+    }), `已將按鈕套用為${buttonAlign === "left" ? "靠左" : buttonAlign === "right" ? "靠右" : "居中"}，發出後也會保持該位置`);
+  }
+
   function insertHighlightText() {
     updateEditorContent(
       (content) => insertBeforeFooter(content, createHighlightBlock(highlightText, highlightBg)),
@@ -388,7 +472,7 @@ function App() {
 
   function insertButtonLink() {
     updateEditorContent(
-      (content) => insertBeforeFooter(content, createButtonBlock(linkText || "查看詳情", linkUrl || "https://chiwa.ai", buttonBg)),
+      (content) => insertBeforeFooter(content, createButtonBlock(linkText || "查看詳情", linkUrl || "https://chiwa.ai", buttonBg, buttonAlign)),
       "已插入按鈕超連結",
     );
   }
@@ -485,13 +569,13 @@ function App() {
         <div className="easy-control-group easy-component-tools">
           <strong>開頭 / 末尾</strong>
           <label>開頭背景 <input type="color" value={headerBg} onChange={(event) => setHeaderBg(event.target.value)} /></label>
-          <button type="button" onClick={applyHeaderBackground}>套用開頭背景</button>
-          <button type="button" onClick={addArchiveHeader}>加入開頭</button>
-          <button type="button" onClick={removeArchiveHeader}>刪除開頭</button>
+          <button type="button" className="dark-action" onClick={applyHeaderBackground}>套用開頭背景</button>
+          <button type="button" className="dark-action" onClick={addArchiveHeader}>加入開頭</button>
+          <button type="button" className="dark-action" onClick={removeArchiveHeader}>刪除開頭</button>
           <label>末尾背景 <input type="color" value={footerBg} onChange={(event) => setFooterBg(event.target.value)} /></label>
-          <button type="button" onClick={applyFooterBackground}>套用末尾背景</button>
-          <button type="button" onClick={addComplianceFooter}>加入末尾</button>
-          <button type="button" onClick={removeComplianceFooter}>刪除末尾</button>
+          <button type="button" className="dark-action" onClick={applyFooterBackground}>套用末尾背景</button>
+          <button type="button" className="dark-action" onClick={addComplianceFooter}>加入末尾</button>
+          <button type="button" className="dark-action" onClick={removeComplianceFooter}>刪除末尾</button>
         </div>
         <div className="easy-control-group easy-component-tools">
           <strong>高亮 / 連結</strong>
@@ -501,8 +585,25 @@ function App() {
           <input value={linkText} onChange={(event) => setLinkText(event.target.value)} placeholder="連結文字 / 按鈕文字" />
           <input value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder="https://example.com" />
           <input type="color" value={buttonBg} onChange={(event) => setButtonBg(event.target.value)} />
+          <select value={buttonAlign} onChange={(event) => setButtonAlign(event.target.value)}>
+            <option value="left">按鈕靠左</option>
+            <option value="center">按鈕居中</option>
+            <option value="right">按鈕靠右</option>
+          </select>
           <button type="button" onClick={insertTextLink}>插入文字連結</button>
           <button type="button" onClick={insertButtonLink}>插入按鈕連結</button>
+          <button type="button" onClick={applyButtonAlignment}>套用所有按鈕位置</button>
+        </div>
+        <div className="easy-control-group easy-component-tools easy-social-tools">
+          <strong>尾部联系圖標</strong>
+          <label>背景 <input type="color" value={contactFooterBg} onChange={(event) => setContactFooterBg(event.target.value)} /></label>
+          <input value={whatsappUrl} onChange={(event) => setWhatsappUrl(event.target.value)} placeholder="WhatsApp URL，如 https://wa.me/852..." />
+          <input value={wechatUrl} onChange={(event) => setWechatUrl(event.target.value)} placeholder="微信 / WeChat URL" />
+          <input value={emailUrl} onChange={(event) => setEmailUrl(event.target.value)} placeholder="Email URL，如 mailto:marketing@chiwa.ai" />
+          <input value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} placeholder="公司網址，如 https://chiwa.ai" />
+          <button type="button" onClick={addContactIconFooter}>加入尾部圖標</button>
+          <button type="button" onClick={applyContactFooterBackground}>套用圖標背景</button>
+          <button type="button" onClick={removeContactIconFooter}>刪除尾部圖標</button>
         </div>
         <div className="easy-control-group easy-asset-strip">
           <strong>素材庫</strong>

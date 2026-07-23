@@ -114,8 +114,15 @@ The page also includes explicit controls for:
 - inserting highlighted text blocks
 - inserting editable text links
 - inserting editable button links
+- choosing button alignment: left, center, or right
+- applying one alignment to all CTA button blocks
+- inserting a footer contact icon bar for WhatsApp, WeChat, email, and website links
 
 The link tools save the URL directly into the Easy Email JSON and exported HTML. Use them for CTA buttons, partner links, product pages, web archive links, or other campaign-specific destinations.
+
+Button alignment is saved into the underlying MJML button attributes, so the sent email keeps the chosen left, center, or right placement in customer inboxes instead of only appearing centered inside the editor.
+
+The footer contact icon bar uses email-safe inline HTML, not external icon images. This keeps it more stable across Gmail, Outlook, and mobile mail clients.
 
 ## Campaign Flow
 
