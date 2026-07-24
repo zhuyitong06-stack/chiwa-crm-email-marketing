@@ -6,7 +6,7 @@
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./vendor/grapes.min.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260724-campaign-sync" />
+    <link rel="stylesheet" href="./styles.css?v=20260724-designer-links" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
   <script>var self = window; window.self = window.self || window;</script>
@@ -424,10 +424,44 @@
                   <button type="button" data-designer-quick-block="button">按鈕</button>
                   <button type="button" data-designer-quick-block="divider">分隔線</button>
                   <button type="button" data-designer-quick-block="postsage">PostSage CTA</button>
+                  <button type="button" data-designer-quick-block="contactFooter">聯系尾部</button>
                   <button type="button" data-designer-quick-block="signature">簽名</button>
                 </div>
                 <input id="designerComponentSearchField" class="designer-component-search" placeholder="搜尋 button / image / link / heading / 英文或中文內容" />
                 <div id="designerComponentList" class="designer-component-list"></div>
+              </section>
+
+              <section class="work-card designer-link-card">
+                <div class="card-title">
+                  <h2>超鏈接設置</h2>
+                  <span id="designerLinkStatus">選中按鈕、文字或鏈接後可套用</span>
+                </div>
+                <label>顯示文字 <input id="designerLinkTextField" placeholder="如：了解 PostSage AI" /></label>
+                <label>鏈接 URL <input id="designerLinkUrlField" placeholder="https://chiwa.ai 或 mailto:Support@promotion.chiwa.ai" /></label>
+                <div class="designer-link-presets">
+                  <button type="button" data-designer-link-preset="website">Website</button>
+                  <button type="button" data-designer-link-preset="youtube">YouTube</button>
+                  <button type="button" data-designer-link-preset="email">Email</button>
+                  <button type="button" data-designer-link-preset="whatsapp">WhatsApp</button>
+                </div>
+                <div class="drawer-actions">
+                  <button type="button" class="icon-button secondary" id="designerLoadLinkBtn">
+                    <i data-lucide="scan-search"></i>
+                    讀取選中
+                  </button>
+                  <button type="button" class="icon-button secondary" id="designerInsertLinkBtn">
+                    <i data-lucide="link"></i>
+                    插入鏈接
+                  </button>
+                  <button type="button" class="icon-button primary" id="designerApplyLinkBtn">
+                    <i data-lucide="check"></i>
+                    套用鏈接
+                  </button>
+                </div>
+                <button type="button" class="icon-button secondary full-width" id="designerInsertContactFooterBtn">
+                  <i data-lucide="contact"></i>
+                  插入尾部联系按鈕
+                </button>
               </section>
 
               <section class="work-card designer-text-card">
@@ -880,6 +914,6 @@
     </script>
     <script src="./vendor/grapes.min.js"></script>
     <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
-    <script src="./app.js?v=20260724-campaign-sync"></script>
+    <script src="./app.js?v=20260724-designer-links"></script>
   </body>
 </html>

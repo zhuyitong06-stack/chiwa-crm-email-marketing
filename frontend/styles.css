@@ -1543,8 +1543,51 @@ textarea:focus {
 }
 
 .designer-text-card,
+.designer-link-card,
 .designer-component-card {
   min-width: 0;
+}
+
+.designer-link-card {
+  display: grid;
+  gap: 12px;
+}
+
+.designer-link-card label {
+  display: grid;
+  gap: 6px;
+}
+
+.designer-link-card input {
+  min-height: 38px;
+}
+
+.designer-link-presets {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.designer-link-presets button {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.designer-link-presets button:hover {
+  background: #e7f8ef;
+  border-color: #9bd5b2;
+  color: #17633a;
+}
+
+.icon-button.full-width {
+  justify-content: center;
+  width: 100%;
 }
 
 .designer-quick-blocks {
@@ -1985,6 +2028,10 @@ textarea:focus {
   }
 
   .designer-token-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .designer-link-presets {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

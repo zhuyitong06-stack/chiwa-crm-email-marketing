@@ -1623,6 +1623,41 @@
     refreshEmailHistory().catch((error) => setToast(error.message));
   }
 
+  function designerContactFooterHtml() {
+    const safeFont = "Arial, 'Microsoft JhengHei', 'PingFang TC', sans-serif";
+    const contacts = [
+      { label: "Website", href: "https://chiwa.ai/", color: "#0f766e" },
+      { label: "YouTube", href: "https://short-url.cc/1uqwW", color: "#dc2626" },
+      { label: "Email", href: "mailto:Support@promotion.chiwa.ai", color: "#2563eb" },
+      { label: "WhatsApp", href: "https://wa.me/85268265126", color: "#16a34a" },
+    ];
+    const buttons = contacts
+      .map(
+        (item) => `
+          <td align="center" style="padding:4px;">
+            <a href="${escapeHtml(item.href)}" target="_blank" style="background:${item.color};border-radius:999px;color:#ffffff;display:inline-block;font-family:${safeFont};font-size:13px;font-weight:bold;line-height:1;padding:10px 14px;text-decoration:none;">${escapeHtml(item.label)}</a>
+          </td>
+        `,
+      )
+      .join("");
+    return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border-top:1px solid #e5eaf2;margin-top:28px;">
+        <tr>
+          <td align="center" style="padding:22px 20px 12px;font-family:${safeFont};">
+            <p style="color:#344054;font-size:14px;font-weight:bold;line-height:1.5;margin:0 0 10px;">Contact Chiwa AI</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+              <tr>${buttons}</tr>
+            </table>
+            <p style="color:#667085;font-size:12px;line-height:1.6;margin:12px 0 0;">
+              Website: <a href="https://chiwa.ai/" style="color:#0f766e;text-decoration:underline;">https://chiwa.ai</a><br>
+              Email: <a href="mailto:Support@promotion.chiwa.ai" style="color:#2563eb;text-decoration:underline;">Support@promotion.chiwa.ai</a> · WhatsApp: <a href="https://wa.me/85268265126" style="color:#16a34a;text-decoration:underline;">852 6826 5126</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   function designerStarterHtml() {
     return `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
@@ -1649,6 +1684,7 @@
                   <p style="margin:24px 0 0;">
                     <a href="https://chiwa.ai" style="background:#0f766e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 Chiwa AI</a>
                   </p>
+                  ${designerContactFooterHtml()}
                 </td>
               </tr>
             </table>
@@ -1897,6 +1933,11 @@
       category: "Chiwa Marketing",
       content: `<p><a href="https://postsage.ai/r/KEz9YGV6yhJHJgzB" style="background:#eb6a3e;border-radius:6px;color:#ffffff;display:inline-block;padding:12px 18px;text-decoration:none;">了解 PostSage</a></p>`,
     });
+    blocks.add("chiwa-contact-footer", {
+      label: "聯系尾部",
+      category: "Chiwa Marketing",
+      content: designerContactFooterHtml(),
+    });
     blocks.add("chiwa-signature", {
       label: "簡潔簽名",
       category: "Chiwa Marketing",
@@ -1959,6 +2000,7 @@
       button: `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td bgcolor="#0f766e" style="border-radius:6px;"><a href="https://chiwa.ai" target="_blank" style="color:#ffffff;display:inline-block;font-family:${safeFont};font-size:16px;font-weight:bold;line-height:1.2;padding:13px 22px;text-decoration:none;">輸入按鈕文字</a></td></tr></table>`,
       divider: `<hr style="border:0;border-top:1px solid #e5eaf2;margin:24px 0;">`,
       postsage: `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr><td bgcolor="#eb6a3e" style="border-radius:6px;"><a href="https://postsage.ai/r/KEz9YGV6yhJHJgzB" target="_blank" style="color:#ffffff;display:inline-block;font-family:${safeFont};font-size:16px;font-weight:bold;line-height:1.2;padding:13px 22px;text-decoration:none;">了解 PostSage</a></td></tr></table>`,
+      contactFooter: designerContactFooterHtml(),
       signature: `<div style="font-family:${safeFont};color:#344054;font-size:14px;line-height:1.6;margin-top:24px;">Best regards,<br>Chiwa AI Insights<br><a href="https://chiwa.ai" style="color:#0f766e;text-decoration:underline;">https://chiwa.ai</a></div>`,
     };
     return blocks[type] || blocks.paragraph;
@@ -1977,6 +2019,104 @@
 
   function selectedDesignerComponent() {
     return designerState.editor?.getSelected?.() || null;
+  }
+
+  function normalizeDesignerHref(value = "") {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (/^(https?:|mailto:|tel:|sms:|whatsapp:)/i.test(raw)) return raw;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(raw)) return `mailto:${raw}`;
+    const phone = raw.replace(/[^\d+]/g, "");
+    if (/^\+?\d{8,}$/.test(phone)) return `https://wa.me/${phone.replace(/^\+/, "")}`;
+    return `https://${raw.replace(/^\/+/, "")}`;
+  }
+
+  function designerLinkPreset(preset = "") {
+    const presets = {
+      website: { text: "Website", href: "https://chiwa.ai/" },
+      youtube: { text: "PostSage YouTube 介紹", href: "https://short-url.cc/1uqwW" },
+      email: { text: "Support@promotion.chiwa.ai", href: "mailto:Support@promotion.chiwa.ai" },
+      whatsapp: { text: "WhatsApp 852 6826 5126", href: "https://wa.me/85268265126" },
+    };
+    return presets[preset] || null;
+  }
+
+  function findDesignerLinkComponent(component = selectedDesignerComponent()) {
+    if (!component) return null;
+    if (designerComponentTag(component) === "a" || String(component.get?.("type") || "").toLowerCase() === "link") return component;
+    const links = [];
+    walkDesignerComponents(component, (child) => {
+      if (child !== component && (designerComponentTag(child) === "a" || String(child.get?.("type") || "").toLowerCase() === "link")) links.push(child);
+    });
+    return links[0] || null;
+  }
+
+  function setDesignerLinkComponent(component, { href, text = "" } = {}) {
+    if (!component || !href) return;
+    const attrs = component.getAttributes?.() || {};
+    component.setAttributes({
+      ...attrs,
+      href,
+      target: "_blank",
+    });
+    if (text) setDesignerComponentText(component, text);
+  }
+
+  function updateDesignerLinkPanel(component = selectedDesignerComponent()) {
+    const link = findDesignerLinkComponent(component);
+    if (!link) {
+      if ($("designerLinkStatus")) $("designerLinkStatus").textContent = "未選中鏈接；可填寫後插入新鏈接";
+      return;
+    }
+    const attrs = link.getAttributes?.() || {};
+    $("designerLinkUrlField").value = attrs.href || "";
+    $("designerLinkTextField").value = plainTextFromDesignerComponent(link);
+    $("designerLinkStatus").textContent = "已讀取選中鏈接";
+  }
+
+  function applyDesignerLinkToSelection({ insertIfMissing = false } = {}) {
+    if (!designerState.editor) return;
+    const href = normalizeDesignerHref($("designerLinkUrlField").value);
+    const text = normalizeText($("designerLinkTextField").value);
+    if (!href) {
+      setToast("請先填寫鏈接 URL");
+      return;
+    }
+    const selected = selectedDesignerComponent();
+    const existingLink = findDesignerLinkComponent(selected);
+    if (existingLink) {
+      setDesignerLinkComponent(existingLink, { href, text });
+      designerState.editor.select(existingLink);
+      $("designerLinkStatus").textContent = "鏈接已套用到選中組件";
+    } else if (selected && !insertIfMissing) {
+      const linkText = text || plainTextFromDesignerComponent(selected) || href;
+      if (isDesignerTextLikeComponent(selected) || ["td", "th", "div", "p"].includes(designerComponentTag(selected))) {
+        selected.components(`<a href="${escapeHtml(href)}" target="_blank" style="color:#0f766e;text-decoration:underline;">${escapeHtml(linkText)}</a>`);
+      } else {
+        selected.append(`<a href="${escapeHtml(href)}" target="_blank" style="color:#0f766e;text-decoration:underline;">${escapeHtml(linkText)}</a>`);
+      }
+      designerState.editor.select(selected);
+      $("designerLinkStatus").textContent = "已在選中組件內加入鏈接";
+    } else {
+      const added = designerState.editor.addComponents(`<p style="font-family:Arial,'Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.6;margin:12px 0;"><a href="${escapeHtml(href)}" target="_blank" style="color:#0f766e;text-decoration:underline;">${escapeHtml(text || href)}</a></p>`);
+      const component = Array.isArray(added) ? added[0] : added;
+      if (component) designerState.editor.select(component);
+      $("designerLinkStatus").textContent = "已插入新鏈接";
+    }
+    refreshDesignerTextBlocks({ silent: true });
+    refreshDesignerComponents({ silent: true });
+    refreshEmailDesignerLayout();
+  }
+
+  function insertDesignerContactFooter() {
+    if (!designerState.editor) return;
+    const component = designerState.editor.addComponents(designerContactFooterHtml());
+    const added = Array.isArray(component) ? component[0] : component;
+    if (added) designerState.editor.select(added);
+    $("designerLinkStatus").textContent = "已插入尾部联系按鈕";
+    refreshDesignerTextBlocks({ silent: true });
+    refreshDesignerComponents({ silent: true });
+    refreshEmailDesignerLayout();
   }
 
   function designerComponentTag(component) {
@@ -2386,11 +2526,13 @@
     addDesignerBlocks(designerState.editor);
     designerState.editor.on("component:selected", () => {
       updateDesignerTextPanel();
+      updateDesignerLinkPanel();
       refreshDesignerComponents({ silent: true });
     });
     designerState.editor.on("component:deselected", () => {
       designerState.selectedTextComponent = null;
       $("designerTextStatus").textContent = "請先在下方畫布選中文字區塊";
+      $("designerLinkStatus").textContent = "選中按鈕、文字或鏈接後可套用";
       renderDesignerTextBlockList();
       renderDesignerComponentList();
     });
@@ -4821,6 +4963,19 @@
     $("designerComponentList").addEventListener("click", (event) => {
       const button = event.target.closest("[data-designer-component]");
       if (button) selectDesignerComponentById(button.dataset.designerComponent);
+    });
+    $("designerLoadLinkBtn").addEventListener("click", () => updateDesignerLinkPanel());
+    $("designerApplyLinkBtn").addEventListener("click", () => applyDesignerLinkToSelection());
+    $("designerInsertLinkBtn").addEventListener("click", () => applyDesignerLinkToSelection({ insertIfMissing: true }));
+    $("designerInsertContactFooterBtn").addEventListener("click", insertDesignerContactFooter);
+    document.querySelectorAll("[data-designer-link-preset]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const preset = designerLinkPreset(button.dataset.designerLinkPreset);
+        if (!preset) return;
+        $("designerLinkTextField").value = preset.text;
+        $("designerLinkUrlField").value = preset.href;
+        $("designerLinkStatus").textContent = `已填入：${preset.text}`;
+      });
     });
     $("designerLoadTextBtn").addEventListener("click", () => updateDesignerTextPanel());
     $("designerNormalizeTextBtn").addEventListener("click", () => applyDesignerStableText({ normalizeOnly: true }));
