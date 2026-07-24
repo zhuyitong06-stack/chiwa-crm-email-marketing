@@ -752,6 +752,7 @@
     renderConversion();
     renderTable();
     renderImportLog();
+    renderCampaignLeadPicker();
     updateDataSourceBadge();
     if (window.lucide) window.lucide.createIcons();
   }
@@ -2607,13 +2608,20 @@
     const select = $("campaignTemplateSelect");
     if (!select) return;
     const previous = selectedId || select.value;
-    const marketingTemplates = mailState.templates.filter((template) => (template.purpose || "marketing") === "marketing");
+    const campaignTemplates = [...mailState.templates].sort((a, b) => {
+      const score = (template) => ((template.purpose || "marketing").toLowerCase() === "marketing" ? 0 : 1);
+      return score(a) - score(b) || String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant");
+    });
     select.innerHTML =
-      `<option value="">選擇模板</option>` +
-      marketingTemplates
-        .map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name || template.subjectTemplate || template.id)}</option>`)
+      `<option value="">${campaignTemplates.length ? "選擇模板" : "尚未載入模板，請先保存模板"}</option>` +
+      campaignTemplates
+        .map((template) => {
+          const purpose = template.purpose || "marketing";
+          const name = template.name || template.subjectTemplate || template.id;
+          return `<option value="${escapeHtml(template.id)}">${escapeHtml(name)} · ${escapeHtml(purpose)}</option>`;
+        })
         .join("");
-    if (previous && marketingTemplates.some((template) => template.id === previous)) select.value = previous;
+    if (previous && campaignTemplates.some((template) => template.id === previous)) select.value = previous;
   }
 
   function resetTemplateForm() {
@@ -2740,10 +2748,7 @@
 
   function campaignPayloadFromForm() {
     const scheduledAt = $("campaignScheduledAtField").value;
-    const leadIds = $("campaignLeadIdsField").value
-      .split(/[,\s;]+/)
-      .map((value) => value.trim())
-      .filter(Boolean);
+    const leadIds = parseCampaignLeadIds();
     return {
       name: $("campaignNameField").value.trim(),
       subject: $("campaignSubjectField").value.trim(),
@@ -2757,6 +2762,95 @@
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       targetCount: Number($("campaignEstimatedCountField").value) || 0,
     };
+  }
+
+  function parseCampaignLeadIds() {
+    const field = $("campaignLeadIdsField");
+    if (!field) return [];
+    return [...new Set(
+      field.value
+        .split(/[,\s;]+/)
+        .map((value) => value.trim())
+        .filter(Boolean),
+    )];
+  }
+
+  function writeCampaignLeadIds(ids = []) {
+    const field = $("campaignLeadIdsField");
+    if (!field) return;
+    const unique = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
+    field.value = unique.join("\n");
+    renderCampaignLeadPicker();
+  }
+
+  function campaignLeadMatchesQuery(lead, query) {
+    const needle = normalizeText(query).toLowerCase();
+    if (!needle) return true;
+    return [lead.id, lead.company, lead.contact, lead.email, lead.priority]
+      .map((value) => String(value || "").toLowerCase())
+      .some((value) => value.includes(needle));
+  }
+
+  function visibleCampaignLeads() {
+    const query = $("campaignLeadSearchField")?.value || "";
+    return state.leads.filter((lead) => normalizeText(lead.email) && campaignLeadMatchesQuery(lead, query)).slice(0, 120);
+  }
+
+  function renderCampaignLeadPicker() {
+    const list = $("campaignLeadPicker");
+    if (!list) return;
+    const selected = new Set(parseCampaignLeadIds().map((id) => id.toLowerCase()));
+    const leads = visibleCampaignLeads();
+    list.innerHTML =
+      leads
+        .map((lead) => {
+          const checked = selected.has(String(lead.id || "").toLowerCase()) ? "checked" : "";
+          return `
+            <label class="lead-picker-item">
+              <input type="checkbox" data-campaign-lead-id="${escapeHtml(lead.id)}" ${checked} />
+              <strong>${escapeHtml(lead.id)}</strong>
+              <span>${escapeHtml(lead.company || "未填公司")} · ${escapeHtml(lead.email || "未填 Email")}</span>
+              <span>${escapeHtml(lead.priority || "全部")}</span>
+            </label>
+          `;
+        })
+        .join("") || `<div class="mail-empty">沒有符合條件的 CRM 主表客戶；請先確認客戶有 Email。</div>`;
+  }
+
+  function toggleCampaignLeadSelection(leadId, checked) {
+    const current = parseCampaignLeadIds();
+    const normalized = String(leadId || "").trim();
+    if (!normalized) return;
+    const next = checked ? [...current, normalized] : current.filter((id) => id.toLowerCase() !== normalized.toLowerCase());
+    writeCampaignLeadIds(next);
+  }
+
+  function selectVisibleCampaignLeads() {
+    const current = parseCampaignLeadIds();
+    const visibleIds = visibleCampaignLeads().map((lead) => lead.id).filter(Boolean);
+    writeCampaignLeadIds([...current, ...visibleIds]);
+    setToast(`已加入 ${visibleIds.length} 個 Lead ID`);
+  }
+
+  function clearCampaignLeadSelection() {
+    writeCampaignLeadIds([]);
+    $("campaignAudiencePreview").innerHTML = "";
+    $("campaignEstimateLabel").textContent = "尚未預估";
+  }
+
+  async function syncCampaignLeadIdsToBackend() {
+    const leadIds = new Set(parseCampaignLeadIds().map((id) => id.toLowerCase()));
+    if (!leadIds.size) return 0;
+    const contacts = state.leads
+      .filter((lead) => leadIds.has(String(lead.id || "").toLowerCase()))
+      .map(leadPayloadFromLead)
+      .filter((contact) => contact.email);
+    if (!contacts.length) return 0;
+    await apiRequest("/api/admin/contacts/import", {
+      method: "POST",
+      body: JSON.stringify({ contacts }),
+    });
+    return contacts.length;
   }
 
   function resetCampaignWizard() {
@@ -2775,6 +2869,7 @@
     $("campaignActionStatus").textContent = "Campaign 尚未保存。";
     setCampaignStep(1);
     renderCampaigns();
+    renderCampaignLeadPicker();
   }
 
   function selectCampaign(campaignId) {
@@ -2795,6 +2890,8 @@
     $("campaignStatusLabel").textContent = campaign.status || "draft";
     $("campaignActionStatus").textContent = `已選擇 Campaign：${campaign.name}`;
     renderCampaigns();
+    renderCampaignTemplateOptions();
+    renderCampaignLeadPicker();
     renderCampaignPreview();
   }
 
@@ -2805,6 +2902,7 @@
     mailState.campaigns = payload.campaigns || [];
     renderCampaigns();
     renderCampaignTemplateOptions();
+    renderCampaignLeadPicker();
   }
 
   async function saveCampaign(event) {
@@ -2833,6 +2931,7 @@
   }
 
   async function estimateCampaignAudience() {
+    await syncCampaignLeadIdsToBackend();
     const campaignId = await ensureCampaignSaved();
     if (!campaignId) return;
     const payload = await apiRequest(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/estimate`);
@@ -2894,6 +2993,7 @@
   }
 
   async function testCampaignSend() {
+    await syncCampaignLeadIdsToBackend();
     const campaignId = await ensureCampaignSaved();
     if (!campaignId) return;
     const testRecipient = $("campaignTestEmailField").value.trim();
@@ -2911,6 +3011,7 @@
   }
 
   async function startCampaign() {
+    await syncCampaignLeadIdsToBackend();
     const campaignId = await ensureCampaignSaved();
     if (!campaignId) return;
     const scheduledAt = $("campaignScheduledAtField").value;
@@ -4654,6 +4755,14 @@
     $("campaignTextField").addEventListener("input", () => {
       $("campaignTextField").dataset.htmlContent = "";
       renderCampaignPreview();
+    });
+    $("campaignLeadIdsField").addEventListener("input", renderCampaignLeadPicker);
+    $("campaignLeadSearchField").addEventListener("input", renderCampaignLeadPicker);
+    $("campaignSelectVisibleLeadsBtn").addEventListener("click", selectVisibleCampaignLeads);
+    $("campaignClearLeadSelectionBtn").addEventListener("click", clearCampaignLeadSelection);
+    $("campaignLeadPicker").addEventListener("change", (event) => {
+      const input = event.target.closest("[data-campaign-lead-id]");
+      if (input) toggleCampaignLeadSelection(input.dataset.campaignLeadId, input.checked);
     });
     $("estimateCampaignBtn").addEventListener("click", () => runAsync(estimateCampaignAudience));
     $("testCampaignBtn").addEventListener("click", () => runAsync(testCampaignSend));

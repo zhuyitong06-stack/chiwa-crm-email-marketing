@@ -733,6 +733,63 @@ textarea:focus {
   padding: 10px;
 }
 
+.campaign-lead-picker {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.lead-picker-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+}
+
+.lead-picker-toolbar input {
+  min-height: 38px;
+}
+
+.lead-picker-list {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.lead-picker-item {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 96px 1fr auto;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.lead-picker-item strong,
+.lead-picker-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lead-picker-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lead-picker-item input {
+  height: 18px;
+  width: 18px;
+}
+
 .campaign-report-grid {
   display: grid;
   gap: 8px;
@@ -1849,6 +1906,11 @@ textarea:focus {
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lead-picker-toolbar,
+  .lead-picker-item {
     grid-template-columns: 1fr;
   }
 
