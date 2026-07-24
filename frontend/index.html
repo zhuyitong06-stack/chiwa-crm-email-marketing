@@ -6,7 +6,7 @@
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./vendor/grapes.min.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260724-campaign-audience" />
+    <link rel="stylesheet" href="./styles.css?v=20260724-campaign-sync" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
   <script>var self = window; window.self = window.self || window;</script>
@@ -606,6 +606,16 @@
                           <option value="">全部狀態</option>
                         </select>
                       </label>
+                      <label>分組篩選
+                        <select id="campaignGroupField">
+                          <option value="">全部有 Email 客戶</option>
+                          <option value="selected">CRM 主表已勾選客戶</option>
+                          <option value="marketing_opt_in">已同意 Marketing</option>
+                          <option value="default_marketing">默認可營銷 / 未退訂</option>
+                          <option value="missing_company">缺公司資料但有 Email</option>
+                          <option value="missing_contact">缺聯絡人但有 Email</option>
+                        </select>
+                      </label>
                       <label>保存受眾視圖 <input id="campaignAudienceNameField" placeholder="如：P1 Marketing 同意客戶" /></label>
                     </div>
                     <div class="campaign-lead-picker">
@@ -870,6 +880,6 @@
     </script>
     <script src="./vendor/grapes.min.js"></script>
     <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
-    <script src="./app.js?v=20260724-campaign-audience"></script>
+    <script src="./app.js?v=20260724-campaign-sync"></script>
   </body>
 </html>

@@ -988,6 +988,7 @@ export function getEligibleMarketingContacts(filters = {}) {
   const priority = String(filters.priority || "").trim();
   const segment = String(filters.segment || "").trim();
   const outreachStatus = String(filters.outreachStatus || filters.status || "").trim();
+  const group = String(filters.group || "").trim();
   const all = db
     .prepare(`
       SELECT * FROM contacts
@@ -1010,6 +1011,10 @@ export function getEligibleMarketingContacts(filters = {}) {
     if (priority && !contact.tags.includes(priority)) return false;
     if (segment && !contact.tags.includes(segment)) return false;
     if (outreachStatus && contact.lifecycleStage !== outreachStatus) return false;
+    if (group === "marketing_opt_in" && !contact.marketingOptIn) return false;
+    if (group === "default_marketing" && contact.unsubscribed) return false;
+    if (group === "missing_company" && contact.company) return false;
+    if (group === "missing_contact" && [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim()) return false;
     if (filters.lifecycleStage && contact.lifecycleStage !== filters.lifecycleStage) return false;
     if (filters.source && contact.source !== filters.source) return false;
     if (filters.country && contact.country !== filters.country) return false;

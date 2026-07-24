@@ -2763,6 +2763,7 @@
         priority: $("campaignPriorityField").value,
         segment: $("campaignSegmentField").value,
         outreachStatus: $("campaignStatusFilterField").value,
+        group: $("campaignGroupField").value,
         savedView: $("campaignAudienceNameField").value.trim(),
       },
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
@@ -2817,11 +2818,23 @@
     const priority = $("campaignPriorityField")?.value || "";
     const segment = $("campaignSegmentField")?.value || "";
     const status = $("campaignStatusFilterField")?.value || "";
+    const group = $("campaignGroupField")?.value || "";
     return (
       (!priority || lead.priority === priority) &&
       (!segment || lead.segment === segment) &&
-      (!status || lead.outreachStatus === status)
+      (!status || lead.outreachStatus === status) &&
+      leadMatchesCampaignGroup(lead, group)
     );
+  }
+
+  function leadMatchesCampaignGroup(lead, group = "") {
+    if (!group) return true;
+    if (group === "selected") return state.selected.has(lead.id);
+    if (group === "marketing_opt_in") return Boolean(lead.marketingOptIn) && !lead.unsubscribed;
+    if (group === "default_marketing") return !lead.unsubscribed;
+    if (group === "missing_company") return !normalizeText(lead.company);
+    if (group === "missing_contact") return !normalizeText(lead.contact);
+    return true;
   }
 
   function campaignLeadPickerMatches() {
@@ -2879,14 +2892,19 @@
 
   function campaignEffectiveLeadIds() {
     const explicit = parseCampaignLeadIds();
-    if (explicit.length) return explicit;
+    if (explicit.length) {
+      return campaignLeadPickerMatches()
+        .filter((lead) => campaignLeadIdMatchesFilter(lead.id, explicit))
+        .map((lead) => lead.id)
+        .filter(Boolean);
+    }
     return campaignLeadPickerMatches().map((lead) => lead.id).filter(Boolean);
   }
 
   function campaignSelectedLeads() {
     const explicit = parseCampaignLeadIds();
     if (!explicit.length) return campaignLeadPickerMatches();
-    return state.leads.filter((lead) => normalizeText(extractEmailAddress(lead.email)) && campaignLeadIdMatchesFilter(lead.id, explicit));
+    return campaignLeadPickerMatches().filter((lead) => campaignLeadIdMatchesFilter(lead.id, explicit));
   }
 
   function renderCampaignAudienceSelection({ eligibleCount = null, sample = [] } = {}) {
@@ -2971,6 +2989,7 @@
     $("campaignPriorityField").value = campaign.segmentFilter?.priority || "";
     $("campaignSegmentField").value = campaign.segmentFilter?.segment || "";
     $("campaignStatusFilterField").value = campaign.segmentFilter?.outreachStatus || "";
+    $("campaignGroupField").value = campaign.segmentFilter?.group || "";
     $("campaignAudienceNameField").value = campaign.segmentFilter?.savedView || "";
     $("campaignScheduledAtField").value = campaign.scheduledAt ? new Date(campaign.scheduledAt).toISOString().slice(0, 16) : "";
     $("campaignEstimatedCountField").value = campaign.targetCount || campaign.report?.targetCount || "";
@@ -2995,7 +3014,11 @@
   }
 
   async function saveCampaign(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
+    return persistCampaignDraft({ silent: false });
+  }
+
+  async function persistCampaignDraft({ silent = true } = {}) {
     const payload = campaignPayloadFromForm();
     if (!payload.name || !payload.subject || !payload.textContent) {
       setToast("請填寫活動名稱、主題和正文");
@@ -3008,14 +3031,13 @@
     });
     await loadCampaigns();
     selectCampaign(saved.campaign.id);
-    $("campaignActionStatus").textContent = "Campaign 草稿已保存。";
-    setToast("Campaign 已保存");
+    $("campaignActionStatus").textContent = silent ? "Campaign 受眾已同步到後端。" : "Campaign 草稿已保存。";
+    if (!silent) setToast("Campaign 已保存");
     return saved.campaign;
   }
 
   async function ensureCampaignSaved() {
-    if ($("campaignIdField").value) return $("campaignIdField").value;
-    const saved = await saveCampaign(new Event("submit"));
+    const saved = await persistCampaignDraft({ silent: true });
     return saved?.id || "";
   }
 
@@ -4850,6 +4872,7 @@
     $("campaignPriorityField").addEventListener("change", refreshCampaignAudienceUi);
     $("campaignSegmentField").addEventListener("change", refreshCampaignAudienceUi);
     $("campaignStatusFilterField").addEventListener("change", refreshCampaignAudienceUi);
+    $("campaignGroupField").addEventListener("change", refreshCampaignAudienceUi);
     $("campaignSelectVisibleLeadsBtn").addEventListener("click", () => {
       selectVisibleCampaignLeads();
       renderCampaignAudienceSelection();
