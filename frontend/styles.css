@@ -790,6 +790,66 @@ textarea:focus {
   width: 18px;
 }
 
+.campaign-audience-summary {
+  align-items: center;
+  background: #eefaf6;
+  border: 1px solid #b8ead9;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.campaign-audience-summary strong {
+  color: var(--ink);
+}
+
+.campaign-audience-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.campaign-audience-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.campaign-audience-row {
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 132px minmax(140px, 1fr) minmax(180px, 1.3fr) 72px;
+  min-width: 720px;
+  padding: 9px 10px;
+}
+
+.campaign-audience-row:last-child {
+  border-bottom: 0;
+}
+
+.campaign-audience-row.header {
+  background: #f1f5f9;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.campaign-audience-row strong,
+.campaign-audience-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .campaign-report-grid {
   display: grid;
   gap: 8px;

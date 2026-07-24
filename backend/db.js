@@ -986,6 +986,8 @@ export function deleteEmailTemplate(id) {
 export function getEligibleMarketingContacts(filters = {}) {
   const leadIds = parseLeadIdFilters(filters.leadIds || filters.leadId || []);
   const priority = String(filters.priority || "").trim();
+  const segment = String(filters.segment || "").trim();
+  const outreachStatus = String(filters.outreachStatus || filters.status || "").trim();
   const all = db
     .prepare(`
       SELECT * FROM contacts
@@ -1006,6 +1008,8 @@ export function getEligibleMarketingContacts(filters = {}) {
       if (!candidates.some((candidate) => leadIdMatchesFilter(candidate, leadIds))) return false;
     }
     if (priority && !contact.tags.includes(priority)) return false;
+    if (segment && !contact.tags.includes(segment)) return false;
+    if (outreachStatus && contact.lifecycleStage !== outreachStatus) return false;
     if (filters.lifecycleStage && contact.lifecycleStage !== filters.lifecycleStage) return false;
     if (filters.source && contact.source !== filters.source) return false;
     if (filters.country && contact.country !== filters.country) return false;

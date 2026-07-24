@@ -480,6 +480,10 @@
     renderOptions($("segmentField"), SEGMENTS, false);
     renderOptions($("funnelField"), FUNNEL_SELECT_VALUES, false);
     renderOptions($("statusField"), STATUSES, false);
+    renderOptions($("campaignSegmentField"), SEGMENTS);
+    $("campaignSegmentField").firstElementChild.textContent = "全部 Segment";
+    renderOptions($("campaignStatusFilterField"), STATUSES);
+    $("campaignStatusFilterField").firstElementChild.textContent = "全部狀態";
   }
 
   function renderMetrics() {
@@ -2748,7 +2752,7 @@
 
   function campaignPayloadFromForm() {
     const scheduledAt = $("campaignScheduledAtField").value;
-    const leadIds = parseCampaignLeadIds();
+    const leadIds = campaignEffectiveLeadIds();
     return {
       name: $("campaignNameField").value.trim(),
       subject: $("campaignSubjectField").value.trim(),
@@ -2757,6 +2761,8 @@
       segmentFilter: {
         leadIds,
         priority: $("campaignPriorityField").value,
+        segment: $("campaignSegmentField").value,
+        outreachStatus: $("campaignStatusFilterField").value,
         savedView: $("campaignAudienceNameField").value.trim(),
       },
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
@@ -2807,9 +2813,20 @@
       .some((value) => value.includes(needle));
   }
 
+  function leadMatchesCampaignFieldFilters(lead) {
+    const priority = $("campaignPriorityField")?.value || "";
+    const segment = $("campaignSegmentField")?.value || "";
+    const status = $("campaignStatusFilterField")?.value || "";
+    return (
+      (!priority || lead.priority === priority) &&
+      (!segment || lead.segment === segment) &&
+      (!status || lead.outreachStatus === status)
+    );
+  }
+
   function campaignLeadPickerMatches() {
     const query = $("campaignLeadSearchField")?.value || "";
-    return state.leads.filter((lead) => normalizeText(lead.email) && campaignLeadMatchesQuery(lead, query));
+    return state.leads.filter((lead) => normalizeText(extractEmailAddress(lead.email)) && leadMatchesCampaignFieldFilters(lead) && campaignLeadMatchesQuery(lead, query));
   }
 
   function visibleCampaignLeads() {
@@ -2860,8 +2877,55 @@
     $("campaignEstimateLabel").textContent = "尚未預估";
   }
 
+  function campaignEffectiveLeadIds() {
+    const explicit = parseCampaignLeadIds();
+    if (explicit.length) return explicit;
+    return campaignLeadPickerMatches().map((lead) => lead.id).filter(Boolean);
+  }
+
+  function campaignSelectedLeads() {
+    const explicit = parseCampaignLeadIds();
+    if (!explicit.length) return campaignLeadPickerMatches();
+    return state.leads.filter((lead) => normalizeText(extractEmailAddress(lead.email)) && campaignLeadIdMatchesFilter(lead.id, explicit));
+  }
+
+  function renderCampaignAudienceSelection({ eligibleCount = null, sample = [] } = {}) {
+    const leads = campaignSelectedLeads();
+    const previewLimit = 300;
+    const rows = leads.slice(0, previewLimit).map((lead) => `
+      <div class="campaign-audience-row">
+        <strong>${escapeHtml(lead.id || "未填 Lead ID")}</strong>
+        <span>${escapeHtml(lead.company || "未填公司")}</span>
+        <span>${escapeHtml(extractEmailAddress(lead.email) || "未填 Email")}</span>
+        <span>${escapeHtml(lead.priority || "未填")}</span>
+      </div>
+    `);
+    const backendNote =
+      eligibleCount === null
+        ? "點擊「預估人數」後會排除已退訂、投訴、硬退信和抑制名單。"
+        : `後端合規可發：${eligibleCount} 位；前端目前選中：${leads.length} 位。`;
+    const sampleNote = sample.length && eligibleCount !== null ? `<div class="mail-empty">後端已返回 ${sample.length} 位樣本，正式發送會按完整合規受眾執行。</div>` : "";
+    $("campaignAudiencePreview").innerHTML = `
+      <div class="campaign-audience-summary">
+        <strong>目前主表選中 ${leads.length} 位有 Email 客戶</strong>
+        <span>${escapeHtml(backendNote)}</span>
+      </div>
+      <div class="campaign-audience-table">
+        <div class="campaign-audience-row header">
+          <strong>Lead ID</strong>
+          <span>公司</span>
+          <span>Email</span>
+          <span>優先級</span>
+        </div>
+        ${rows.join("") || `<div class="mail-empty">暫無符合條件客戶</div>`}
+      </div>
+      ${leads.length > previewLimit ? `<div class="mail-empty">已顯示前 ${previewLimit} 位，實際選中 ${leads.length} 位。</div>` : ""}
+      ${sampleNote}
+    `;
+  }
+
   async function syncCampaignLeadIdsToBackend() {
-    const leadIds = parseCampaignLeadIds();
+    const leadIds = campaignEffectiveLeadIds();
     if (!leadIds.length) return 0;
     const contacts = state.leads
       .filter((lead) => campaignLeadIdMatchesFilter(lead.id, leadIds))
@@ -2905,6 +2969,8 @@
     $("campaignTextField").dataset.htmlContent = campaign.htmlContent || "";
     $("campaignLeadIdsField").value = (campaign.segmentFilter?.leadIds || []).join("\n");
     $("campaignPriorityField").value = campaign.segmentFilter?.priority || "";
+    $("campaignSegmentField").value = campaign.segmentFilter?.segment || "";
+    $("campaignStatusFilterField").value = campaign.segmentFilter?.outreachStatus || "";
     $("campaignAudienceNameField").value = campaign.segmentFilter?.savedView || "";
     $("campaignScheduledAtField").value = campaign.scheduledAt ? new Date(campaign.scheduledAt).toISOString().slice(0, 16) : "";
     $("campaignEstimatedCountField").value = campaign.targetCount || campaign.report?.targetCount || "";
@@ -2914,6 +2980,7 @@
     renderCampaigns();
     renderCampaignTemplateOptions();
     renderCampaignLeadPicker();
+    renderCampaignAudienceSelection();
     renderCampaignPreview();
   }
 
@@ -2954,6 +3021,7 @@
 
   async function estimateCampaignAudience() {
     await syncCampaignLeadIdsToBackend();
+    renderCampaignAudienceSelection();
     const campaignId = await ensureCampaignSaved();
     if (!campaignId) return;
     const payload = await apiRequest(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/estimate`);
@@ -2961,13 +3029,7 @@
     $("campaignSampleJsonField").value = JSON.stringify(payload.sample || []);
     $("campaignEstimateLabel").textContent = `預估 ${payload.eligibleCount} 位`;
     $("campaignSendSummary").textContent = `將面向 ${payload.eligibleCount} 位符合條件的客戶；已退訂、投訴、硬退信和抑制名單會自動排除。`;
-    $("campaignAudiencePreview").innerHTML =
-      (payload.sample || [])
-        .map(
-          (contact) =>
-            `<div class="snapshot-row"><span>${escapeHtml(contact.crmCustomerId || contact.id || "Lead")}${contact.priority ? ` · ${escapeHtml(contact.priority)}` : ""}</span><strong>${escapeHtml(contact.company || contact.email)}</strong></div>`,
-        )
-        .join("") || `<div class="mail-empty">暫無符合條件客戶</div>`;
+    renderCampaignAudienceSelection({ eligibleCount: payload.eligibleCount || 0, sample: payload.sample || [] });
     setToast(`符合條件客戶：${payload.eligibleCount}`);
   }
 
@@ -4778,13 +4840,27 @@
       $("campaignTextField").dataset.htmlContent = "";
       renderCampaignPreview();
     });
-    $("campaignLeadIdsField").addEventListener("input", renderCampaignLeadPicker);
-    $("campaignLeadSearchField").addEventListener("input", renderCampaignLeadPicker);
-    $("campaignSelectVisibleLeadsBtn").addEventListener("click", selectVisibleCampaignLeads);
+    const refreshCampaignAudienceUi = () => {
+      renderCampaignLeadPicker();
+      renderCampaignAudienceSelection();
+      $("campaignEstimateLabel").textContent = "尚未預估";
+    };
+    $("campaignLeadIdsField").addEventListener("input", refreshCampaignAudienceUi);
+    $("campaignLeadSearchField").addEventListener("input", refreshCampaignAudienceUi);
+    $("campaignPriorityField").addEventListener("change", refreshCampaignAudienceUi);
+    $("campaignSegmentField").addEventListener("change", refreshCampaignAudienceUi);
+    $("campaignStatusFilterField").addEventListener("change", refreshCampaignAudienceUi);
+    $("campaignSelectVisibleLeadsBtn").addEventListener("click", () => {
+      selectVisibleCampaignLeads();
+      renderCampaignAudienceSelection();
+    });
     $("campaignClearLeadSelectionBtn").addEventListener("click", clearCampaignLeadSelection);
     $("campaignLeadPicker").addEventListener("change", (event) => {
       const input = event.target.closest("[data-campaign-lead-id]");
-      if (input) toggleCampaignLeadSelection(input.dataset.campaignLeadId, input.checked);
+      if (input) {
+        toggleCampaignLeadSelection(input.dataset.campaignLeadId, input.checked);
+        renderCampaignAudienceSelection();
+      }
     });
     $("estimateCampaignBtn").addEventListener("click", () => runAsync(estimateCampaignAudience));
     $("testCampaignBtn").addEventListener("click", () => runAsync(testCampaignSend));

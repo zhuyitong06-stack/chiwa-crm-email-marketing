@@ -6,7 +6,7 @@
     <title>CRM数字营销系统</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./vendor/grapes.min.css" />
-    <link rel="stylesheet" href="./styles.css?v=20260724-campaign-bulk" />
+    <link rel="stylesheet" href="./styles.css?v=20260724-campaign-audience" />
   <script src="./vendor/xlsx.full.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
   <script>var self = window; window.self = window.self || window;</script>
@@ -596,12 +596,22 @@
                           <option value="P3">P3</option>
                         </select>
                       </label>
+                      <label>Segment 篩選
+                        <select id="campaignSegmentField">
+                          <option value="">全部 Segment</option>
+                        </select>
+                      </label>
+                      <label>觸達狀態篩選
+                        <select id="campaignStatusFilterField">
+                          <option value="">全部狀態</option>
+                        </select>
+                      </label>
                       <label>保存受眾視圖 <input id="campaignAudienceNameField" placeholder="如：P1 Marketing 同意客戶" /></label>
                     </div>
                     <div class="campaign-lead-picker">
                       <div class="lead-picker-toolbar">
                         <input id="campaignLeadSearchField" type="search" placeholder="搜尋 CRM 主表 Lead ID / 公司 / Email" />
-                        <button type="button" class="icon-button secondary compact" id="campaignSelectVisibleLeadsBtn">選取列表</button>
+                        <button type="button" class="icon-button secondary compact" id="campaignSelectVisibleLeadsBtn">選取篩選結果</button>
                         <button type="button" class="icon-button secondary compact" id="campaignClearLeadSelectionBtn">清空 Lead ID</button>
                       </div>
                       <div id="campaignLeadPicker" class="lead-picker-list"></div>
@@ -860,6 +870,6 @@
     </script>
     <script src="./vendor/grapes.min.js"></script>
     <script src="./vendor/grapesjs-preset-newsletter.min.js"></script>
-    <script src="./app.js?v=20260724-campaign-bulk"></script>
+    <script src="./app.js?v=20260724-campaign-audience"></script>
   </body>
 </html>
