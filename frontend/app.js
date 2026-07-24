@@ -2769,10 +2769,26 @@
     if (!field) return [];
     return [...new Set(
       field.value
-        .split(/[,\s;]+/)
+        .split(/[\n\r,;，；、]+/)
         .map((value) => value.trim())
         .filter(Boolean),
     )];
+  }
+
+  function normalizeCampaignLeadKey(value) {
+    return String(value || "")
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[\s,;，；、|/\\:：._-]+/g, "");
+  }
+
+  function campaignLeadIdMatchesFilter(leadId, filters = []) {
+    const candidate = normalizeCampaignLeadKey(leadId);
+    if (!candidate) return false;
+    return filters.some((filter) => {
+      const term = normalizeCampaignLeadKey(filter);
+      return term && (candidate === term || candidate.includes(term) || term.includes(candidate));
+    });
   }
 
   function writeCampaignLeadIds(ids = []) {
@@ -2791,20 +2807,26 @@
       .some((value) => value.includes(needle));
   }
 
-  function visibleCampaignLeads() {
+  function campaignLeadPickerMatches() {
     const query = $("campaignLeadSearchField")?.value || "";
-    return state.leads.filter((lead) => normalizeText(lead.email) && campaignLeadMatchesQuery(lead, query)).slice(0, 120);
+    return state.leads.filter((lead) => normalizeText(lead.email) && campaignLeadMatchesQuery(lead, query));
+  }
+
+  function visibleCampaignLeads() {
+    return campaignLeadPickerMatches().slice(0, 500);
   }
 
   function renderCampaignLeadPicker() {
     const list = $("campaignLeadPicker");
     if (!list) return;
-    const selected = new Set(parseCampaignLeadIds().map((id) => id.toLowerCase()));
+    const selected = parseCampaignLeadIds();
     const leads = visibleCampaignLeads();
+    const total = campaignLeadPickerMatches().length;
     list.innerHTML =
+      (total > leads.length ? `<div class="mail-empty">已顯示前 ${leads.length} 位；點擊「選取列表」會加入全部 ${total} 位符合條件且有 Email 的客戶。</div>` : "") +
       leads
         .map((lead) => {
-          const checked = selected.has(String(lead.id || "").toLowerCase()) ? "checked" : "";
+          const checked = campaignLeadIdMatchesFilter(lead.id, selected) ? "checked" : "";
           return `
             <label class="lead-picker-item">
               <input type="checkbox" data-campaign-lead-id="${escapeHtml(lead.id)}" ${checked} />
@@ -2821,13 +2843,13 @@
     const current = parseCampaignLeadIds();
     const normalized = String(leadId || "").trim();
     if (!normalized) return;
-    const next = checked ? [...current, normalized] : current.filter((id) => id.toLowerCase() !== normalized.toLowerCase());
+    const next = checked ? [...current, normalized] : current.filter((id) => !campaignLeadIdMatchesFilter(normalized, [id]));
     writeCampaignLeadIds(next);
   }
 
   function selectVisibleCampaignLeads() {
     const current = parseCampaignLeadIds();
-    const visibleIds = visibleCampaignLeads().map((lead) => lead.id).filter(Boolean);
+    const visibleIds = campaignLeadPickerMatches().map((lead) => lead.id).filter(Boolean);
     writeCampaignLeadIds([...current, ...visibleIds]);
     setToast(`已加入 ${visibleIds.length} 個 Lead ID`);
   }
@@ -2839,10 +2861,10 @@
   }
 
   async function syncCampaignLeadIdsToBackend() {
-    const leadIds = new Set(parseCampaignLeadIds().map((id) => id.toLowerCase()));
-    if (!leadIds.size) return 0;
+    const leadIds = parseCampaignLeadIds();
+    if (!leadIds.length) return 0;
     const contacts = state.leads
-      .filter((lead) => leadIds.has(String(lead.id || "").toLowerCase()))
+      .filter((lead) => campaignLeadIdMatchesFilter(lead.id, leadIds))
       .map(leadPayloadFromLead)
       .filter((contact) => contact.email);
     if (!contacts.length) return 0;

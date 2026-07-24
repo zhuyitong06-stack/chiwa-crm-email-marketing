@@ -201,6 +201,34 @@ export function initializeDb() {
   db.exec("CREATE INDEX IF NOT EXISTS idx_email_messages_campaign ON email_messages(campaignId)");
 }
 
+function parseLeadIdFilters(value = []) {
+  const source = Array.isArray(value) ? value : [String(value || "")];
+  return [
+    ...new Set(
+      source
+        .flatMap((item) => String(item || "").split(/[\n\r,;，；、]+/))
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function normalizeLeadIdKey(value = "") {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s,;，；、|/\\:：._-]+/g, "");
+}
+
+function leadIdMatchesFilter(candidateValue, filters = []) {
+  const candidate = normalizeLeadIdKey(candidateValue);
+  if (!candidate) return false;
+  return filters.some((filter) => {
+    const term = normalizeLeadIdKey(filter);
+    return term && (candidate === term || candidate.includes(term) || term.includes(candidate));
+  });
+}
+
 function mapContact(row) {
   if (!row) return null;
   return {
@@ -956,17 +984,14 @@ export function deleteEmailTemplate(id) {
 }
 
 export function getEligibleMarketingContacts(filters = {}) {
-  const leadIds = Array.isArray(filters.leadIds)
-    ? filters.leadIds.map(String).map((value) => value.trim().toLowerCase()).filter(Boolean)
-    : String(filters.leadIds || filters.leadId || "")
-        .split(/[,\s;]+/)
-        .map((value) => value.trim().toLowerCase())
-        .filter(Boolean);
+  const leadIds = parseLeadIdFilters(filters.leadIds || filters.leadId || []);
   const priority = String(filters.priority || "").trim();
   const all = db
     .prepare(`
       SELECT * FROM contacts
-      WHERE unsubscribed = 0
+      WHERE email IS NOT NULL
+        AND email != ''
+        AND unsubscribed = 0
         AND complaintStatus = 0
         AND bounceStatus != 'hard_bounce'
         AND bounceStatus != 'suppressed'
@@ -977,8 +1002,8 @@ export function getEligibleMarketingContacts(filters = {}) {
 
   return all.filter((contact) => {
     if (leadIds.length) {
-      const candidates = [contact.id, contact.crmCustomerId].map((value) => String(value || "").toLowerCase());
-      if (!leadIds.some((leadId) => candidates.includes(leadId))) return false;
+      const candidates = [contact.id, contact.crmCustomerId];
+      if (!candidates.some((candidate) => leadIdMatchesFilter(candidate, leadIds))) return false;
     }
     if (priority && !contact.tags.includes(priority)) return false;
     if (filters.lifecycleStage && contact.lifecycleStage !== filters.lifecycleStage) return false;
